@@ -7,11 +7,11 @@ description:
     binary stream, or a mixture of both.
     See https://github.com/sorrowfulT-Rex/mmzk-bsparser/blob/main/README.md (incomplete) for examples and full documentations.
 
-category:           Parsing
-bug-reports:        https://github.com/sorrowfulT-Rex/mmzk-bsparser/issues
-license:            BSD-3-Clause
-author:             MMZK1526 <yc4120@ic.ac.uk>
-maintainer:         MMZK1526 <yc4120@ic.ac.uk>
+category:    Parsing
+bug-reports: https://github.com/sorrowfulT-Rex/mmzk-bsparser/issues
+license:     BSD-3-Clause
+author:      MMZK1526 <yc4120@ic.ac.uk>
+maintainer:  MMZK1526 <yc4120@ic.ac.uk>
 extra-source-files:
     CHANGELOG.md,
     README.md
