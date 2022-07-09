@@ -5,10 +5,10 @@ synopsis:           Parser combinators for mixed UTF-8 plain texts and binary st
 description:
     mmzk-bsparser is a Monadic parser combinator library aiming for paring plain texts (ASCII or encoded in UTF-8),
     binary stream, or a mixture of both.
-    See (incomplete) for examples and full documentations.
+    See https://github.com/sorrowfulT-Rex/mmzk-bsparser/blob/main/README.md (incomplete) for examples and full documentations.
 
 category:           Parsing
--- bug-reports:
+bug-reports:        https://github.com/sorrowfulT-Rex/mmzk-bsparser/issues
 license:            BSD-3-Clause
 author:             MMZK1526 <yc4120@ic.ac.uk>
 maintainer:         MMZK1526 <yc4120@ic.ac.uk>
