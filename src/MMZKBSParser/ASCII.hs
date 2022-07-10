@@ -29,6 +29,11 @@ noneOf chs = satisfy (`notElem` chs)
 digit :: Monad m => ParserT m Char
 digit = toChar <$> P8.digit
 
+-- | Parse a single hexadecimal digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; a, b, c, d,
+-- e, f; A, B, C, D, E, F. The result is retained as a "Word8".
+hexDigit :: Monad m => ParserT m Char
+hexDigit = toChar <$> P8.hexDigit
+
 -- | Parse a single Latin letter: a, b, c, d, e, f, g, h, i, j, k, l, m, n, o,
 -- p, q, r, s, t, u, v, w, x, y, z; A, B, C, D, E, F, G, H, I, J, K, L, M, N, O,
 -- P, Q, R, S, T, U, V, W, X, Y, Z.

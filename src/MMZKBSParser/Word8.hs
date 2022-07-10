@@ -33,6 +33,13 @@ noneOf chs = satisfy (`notElem` chs)
 digit :: Monad m => ParserT m Word8
 digit = satisfy (\ch -> ch >= 48 && ch <= 57)
 
+-- | Parse a single hexadecimal digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; a, b, c, d,
+-- e, f; A, B, C, D, E, F. The result is retained as a "Word8".
+hexDigit :: Monad m => ParserT m Word8
+hexDigit = satisfy ( \ch -> (ch >= 48 && ch <= 57)
+                         || (ch >= 65 && ch <= 70)
+                         || (ch >= 97 && ch <= 102) )
+
 -- | Parse a single Latin letter: a, b, c, d, e, f, g, h, i, j, k, l, m, n, o,
 -- p, q, r, s, t, u, v, w, x, y, z; A, B, C, D, E, F, G, H, I, J, K, L, M, N, O,
 -- P, Q, R, S, T, U, V, W, X, Y, Z. The result is retained as a "Word8".
@@ -44,8 +51,8 @@ alpha = satisfy (\ch -> (ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122))
 -- M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z; 0, 1, 2, 3, 4, 5, 6, 7, 8, 9. The
 -- result is retained as a "Word8".
 alphaNum :: Monad m => ParserT m Word8
-alphaNum = satisfy ( \ch -> (ch >= 48 && ch <= 57) 
-                         || (ch >= 65 && ch <= 90) 
+alphaNum = satisfy ( \ch -> (ch >= 48 && ch <= 57)
+                         || (ch >= 65 && ch <= 90)
                          || (ch >= 97 && ch <= 122) )
 
 -- | Parse a single lowercase Latin letter: a, b, c, d, e, f, g, h, i, j, k, l,

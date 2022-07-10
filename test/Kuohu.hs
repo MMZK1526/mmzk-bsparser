@@ -19,10 +19,10 @@ simpleBraces = "{}"
 simpleChevrs = "<>"
 
 -- | Valid examples.
-consecutivePairs, nestedPairs, everything :: String
+consecutivePairs, nestedPairs, combo :: String
 consecutivePairs = "()[]<>{}[]"
 nestedPairs      = "([{<>}])"
-everything       = "({}{}<{}>[{<{}><[]>[()]()}])({}{}<{}>[{<{}><[]>[()]()}])"
+combo            = "({}{}<{}>[{<{}><[]>[()]()}])({}{}<{}>[{<{}><[]>[()]()}])"
 
 -- | Malformed examples.
 mismatchPairs, badOrder :: String
@@ -36,7 +36,7 @@ main = runTestTTAndExit
                 , testInvalids "Malformed pairs" malformedPairs ]
   where
     basicPairs     = [simpleParens, simpleBraces, simpleBracks, simpleChevrs]
-    advancedPairs  = [consecutivePairs, nestedPairs, everything]
+    advancedPairs  = [consecutivePairs, nestedPairs, combo]
     malformedPairs = [mismatchPairs, badOrder]
 
 testValids :: String -> [String] -> Test

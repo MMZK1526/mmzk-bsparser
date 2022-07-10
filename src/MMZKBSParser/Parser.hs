@@ -16,6 +16,10 @@ data ParseState = ParseState { parseStr   :: ByteString
                              , parseIndex :: Int
                              , bitOffset  :: Int
                              , allowBadCP :: Bool }
+  deriving Eq
+
+instance Ord ParseState where
+  a <= b = (parseIndex a < parseIndex b) || (bitOffset a <= bitOffset b)
 
 incPS :: ParseState -> ParseState
 incPS = addPS 1
@@ -90,10 +94,21 @@ parse = (runIdentity .) . parseT
 -- | Get the current "ParseState".
 inspect :: Monad m => ParserT m ParseState
 inspect = ParserT $ \ps -> pure (Just ps, ps)
+{-# INLINE inspect #-}
 
 -- | Set whether bad codepoints are allowed.
 setAllowBadCP :: Monad m => Bool -> ParserT m ()
 setAllowBadCP val = ParserT $ \ps -> pure (Just (), ps { allowBadCP = val })
+{-# INLINE setAllowBadCP #-}
+
+-- | Forcefully set the "ParseState". In particular, this enables jumping to a
+-- specific index of the input "ByteStream" for the parser. This is a very 
+-- dangerous move, for example, if the index of the new "ParseState" is out of
+-- bound, the parser WILL crash. This function is not exposed in the main module
+-- and must be explicitly imported from MMZKBSParser.Unsafe.
+forcePush :: Monad m => ParseState -> ParserT m ()
+forcePush ps = ParserT . const $ pure (Just (), ps)
+{-# INLINE forcePush #-}
 
 -- | Flush the remaining unprocessed bits in the current token ("Word8"). If the
 -- input "ByteString" contains both binary and UTF-8, call this function
@@ -103,6 +118,7 @@ flush :: Monad m => ParserT m Int
 flush = ParserT $ \ps -> pure $ case bitOffset ps of
   0 -> (Just 0, ps)
   n -> (Just (8 - n), incPS ps)
+{-# INLINE flush #-}
 
 -- | Parse one token ("Word8") using the predicate function. If the predicate
 -- returns "Nothing", fail the "ParserT".
@@ -123,8 +139,8 @@ tokens n f = ParserT $ \ps -> pure $ case f . fromByteString $ firstNPS n ps of
 -- | Parse one "Char" codepoint using the predicate function. If the predicate
 -- returns "Nothing", fail the "ParserT". If the codepoint is invalid, the
 -- behaviour is determined by "allowBadCP" of the "ParserState".
-tokenChar :: Monad m => (Char -> Maybe a) -> ParserT m a
-tokenChar f = ParserT $ \ps -> return $ case BSU.decode (parseStr ps) of
+charToken :: Monad m => (Char -> Maybe a) -> ParserT m a
+charToken f = ParserT $ \ps -> return $ case BSU.decode (parseStr ps) of
   Nothing      -> (Nothing, ps)
   Just (ch, i) -> case ch of
     '\xFFFD' -> if firstNPS i ps /= toByteString [ch] && not (allowBadCP ps)
@@ -149,8 +165,8 @@ lookAhead p = ParserT $ \ps -> (, ps) . fst <$> runParserT p ps
 
 -- | Succeed iff the "ParserT" fails. Will not consume any input or modify any
 -- state.
-notFollowedBy :: Monad m => ParserT m a -> ParserT m ()
-notFollowedBy p = ParserT $ \ps -> do
+negate :: Monad m => ParserT m a -> ParserT m ()
+negate p = ParserT $ \ps -> do
   (ma, _) <- runParserT p ps
   return $ case ma of
     Nothing -> (Just (), ps)
@@ -170,9 +186,72 @@ empty = A.empty
 (<|>) = (A.<|>)
 infixl 3 <|>
 
+-- | Attempt both "ParserT"s on the same input. If both suceeds, returns a
+-- tuple of the two results. The number of tokens consumed is longer one of the
+-- two "ParserT"s, or the first one if they are equal. Fails if one of the
+-- "ParserT" fails.
+(<&&>) :: Monad m => ParserT m a -> ParserT m b -> ParserT m (a, b)
+pa <&&> pb = do
+  ps  <- inspect
+  a   <- pa
+  psA <- inspect
+  forcePush ps
+  b   <- pb
+  psB <- inspect
+  forcePush $ max psA psB
+  return (a, b)
+infixl 2 <&&>
+
+-- | Attempt both "ParserT"s on the same input. If both suceeds, choose the one
+-- that consumes the most tokens, or the first one if the numbers are equal.
+-- Fails if one of the "ParserT" fails.
+(<&>) :: Monad m => ParserT m a -> ParserT m a -> ParserT m a
+p1 <&> p2 = do
+  ps  <- inspect
+  r1   <- p1
+  ps1 <- inspect
+  forcePush ps
+  r2   <- p2
+  ps2 <- inspect
+  if ps1 >= ps2 then r1 <$ forcePush ps1 else r2 <$ forcePush ps2
+infixl 2 <&>
+
+
 -- | Try all "ParserT"s until one of them parses successfully.
 choice :: Monad m => [ParserT m a] -> ParserT m a
 choice = msum
+
+-- | Attempt a list of "ParserT"s on the same input. If all suceeds, returns a
+-- list of the results. The number of tokens consumed is longest one of the
+-- "ParserT"s, or the first one of them if there is a tie. Fails if one of the 
+-- "ParserT" fails.
+everything :: Monad m => [ParserT m a] -> ParserT m [a]
+everything parsers = do
+  psO <- inspect
+  let go ps []             = [] <$ forcePush ps
+      go ps (p : parsers') = do
+        r   <- p
+        ps' <- inspect
+        forcePush psO
+        (r :) <$> go (max ps ps') parsers'
+  go psO parsers
+
+-- | Attempt a list of "ParserT"s on the same input. If all suceeds, choose the
+-- one that has consumed the most number of tokens, or the first one of them if
+-- there is a tie. Fails if the list is empty or one of the "ParserT" fails.
+every :: Monad m => [ParserT m a] -> ParserT m a
+every []            = empty
+every (p : parsers) = do
+  psO <- inspect
+  r1  <- p
+  ps1 <- inspect
+  let go ps r []              = r <$ forcePush ps
+      go ps r (p' : parsers') = do
+        forcePush psO
+        r'  <- p'
+        ps' <- inspect
+        if ps >= ps then go ps r parsers' else go ps' r' parsers'
+  go ps1 r1 parsers
 
 -- | Parse for left paren, content, and right paren, returning only the content.
 parens :: Monad m => ParserT m o -> ParserT m c -> ParserT m a -> ParserT m a
