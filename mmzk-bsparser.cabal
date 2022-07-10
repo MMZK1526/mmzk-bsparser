@@ -62,15 +62,3 @@ test-suite kuohu
         base ^>=4.14.3.0,
         HUnit ^>=1.6.2.0,
         mmzk-bsparser
-
-
-test-suite hex
-    default-language: Haskell2010
-    type:             exitcode-stdio-1.0
-    hs-source-dirs:   test
-    main-is:          Hex.hs
-    build-depends:
-        base ^>=4.14.3.0,
-        HUnit ^>=1.6.2.0,
-        mmzk-bsparser
-
