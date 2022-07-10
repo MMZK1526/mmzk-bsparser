@@ -19,23 +19,31 @@ simpleBraces = "{}"
 simpleChevrs = "<>"
 
 -- | Valid examples.
-kuohuG1, kuohuG2 :: String
-kuohuG1 = "()"
-kuohuG2 = "({}{}<{}>[{<{}><[]>[()]()}])({}{}<{}>[{<{}><[]>[()]()}])"
+consecutivePairs, nestedPairs, everything :: String
+consecutivePairs = "()[]<>{}[]"
+nestedPairs      = "([{<>}])"
+everything       = "({}{}<{}>[{<{}><[]>[()]()}])({}{}<{}>[{<{}><[]>[()]()}])"
 
--- | Invalid examples.
-kuohuB1, kuohuB2 :: String
-kuohuB1 = ")("
-kuohuB2 = "<<>[](([{}<>])}>"
+-- | Malformed examples.
+mismatchPairs, badOrder :: String
+mismatchPairs = "<<>[](([{}<>])}>"
+badOrder      = ")("
 
 main :: IO ()
 main = runTestTTAndExit
-     $ TestList [ testValids "Basic pairs" basicPairs ]
+     $ TestList [ testValids "Basic pairs" basicPairs
+                , testValids "Advanced pairs" advancedPairs
+                , testInvalids "Malformed pairs" malformedPairs ]
   where
-    basicPairs = [simpleParens, simpleBraces, simpleBracks, simpleChevrs]
+    basicPairs     = [simpleParens, simpleBraces, simpleBracks, simpleChevrs]
+    advancedPairs  = [consecutivePairs, nestedPairs, everything]
+    malformedPairs = [mismatchPairs, badOrder]
 
 testValids :: String -> [String] -> Test
 testValids = (. TestList . map testSingleValid) . TestLabel
+
+testInvalids :: String -> [String] -> Test
+testInvalids = (. TestList . map testSingleInvalid) . TestLabel
 
 testSingleValid :: String -> Test
 testSingleValid kuohu = TestCase

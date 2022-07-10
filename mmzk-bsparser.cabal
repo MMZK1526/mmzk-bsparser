@@ -18,8 +18,8 @@ extra-source-files:
     LICENSE
 
 
-flag dev
-    description: Turn on development settings.
+flag release
+    description: Turn off development settings.
     default:     False
     manual:      True
 
@@ -47,10 +47,10 @@ library
         text ^>=2.0,
         transformers ^>=0.5.6.2
 
-    if flag(dev)
-        ghc-options: -O0 -Wall
-    else
+    if flag(release)
         ghc-options: -O3 -Wall
+    else
+        ghc-options: -O0 -Wall
 
 
 test-suite kuohu

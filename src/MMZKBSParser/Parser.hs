@@ -12,9 +12,9 @@ import           Data.Functor.Identity
 import           Data.Word
 import           MMZKBSParser.Convert
 
-data ParseState = ParseState { parseIndex :: Int
+data ParseState = ParseState { parseStr   :: ByteString
+                             , parseIndex :: Int
                              , bitOffset  :: Int
-                             , parseStr   :: ByteString
                              , allowBadCP :: Bool }
 
 incPS :: ParseState -> ParseState
@@ -219,7 +219,6 @@ sepBy1 :: Monad m => ParserT m a -> ParserT m s -> ParserT m [a]
 sepBy1 pa ps = liftM2 (:) pa (many (ps >> pa))
 
 -- | Parse a non-empty list of contents separated by a separator where the
--- latter can
--- optionally appear at the end.
+-- latter can optionally appear at the end.
 sepEndBy1 :: Monad m => ParserT m a -> ParserT m s -> ParserT m [a]
 sepEndBy1 pa ps = sepBy1 pa ps <* optional ps
