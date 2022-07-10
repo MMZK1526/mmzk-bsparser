@@ -1,5 +1,5 @@
 import           MMZKBSParser
-import qualified MMZKBSParser.Lexer as L
+import qualified MMZKBSParser.ASCII as PA
 import           Test.HUnit
 
 -- | Example: Nested parenthesis, brackets, braces, and chevrons.
@@ -78,7 +78,7 @@ kuohuParser = do
     _ -> Apply kuohus
   where
     singleNestParser
-      = choice [ Paren <$> parens (L.char '(') (L.char ')') kuohuParser
-               , Brack <$> parens (L.char '[') (L.char ']') kuohuParser
-               , Brace <$> parens (L.char '{') (L.char '}') kuohuParser
-               , Chevr <$> parens (L.char '<') (L.char '>') kuohuParser ]
+      = choice [ Paren <$> parens (PA.char '(') (PA.char ')') kuohuParser
+               , Brack <$> parens (PA.char '[') (PA.char ']') kuohuParser
+               , Brace <$> parens (PA.char '{') (PA.char '}') kuohuParser
+               , Chevr <$> parens (PA.char '<') (PA.char '>') kuohuParser ]

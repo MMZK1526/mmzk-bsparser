@@ -1,8 +1,9 @@
+import           Control.Monad
 import           MMZKBSParser
 import qualified MMZKBSParser.Lexer as L
 import           Test.HUnit
 
-main = print (parseHex "1123Bd13")
+main = print (parseHex "BD")
 
 -- main :: IO ()
 -- main = runTestTTAndExit
@@ -36,4 +37,10 @@ parseHex :: ByteStringLike s => s -> Maybe String
 parseHex = parse (hexParser <* eof)
 
 hexParser :: Parser String
-hexParser = many (L.hexDigit <&> [neg L.lower])
+hexParser = many (L.hexDigit <&> [L.upper])
+
+parseAlphaHex :: ByteStringLike s => s -> Maybe String
+parseAlphaHex = parse (alphaHexParser <* eof)
+
+alphaHexParser :: Parser String
+alphaHexParser = many (L.hexDigit <&> [void L.upper, neg L.digit])

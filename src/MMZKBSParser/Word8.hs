@@ -6,16 +6,22 @@ module MMZKBSParser.Word8 where
 import           Data.Word
 import           MMZKBSParser.Parser
 
--- | Parse one token ("Word8") using the predicate. The result is retained as
--- a "Word8".
-satisfy :: Monad m => (Word8 -> Bool) -> ParserT m Word8
-satisfy f = token $ \x -> if f x then Just x else Nothing
-{-# INLINE satisfy #-}
+-- | Parse the given token ("Word8"). The result is retained as a "Word8".
+-- Use it with care if the list of tokens contains non-Latin-1 codepoints since
+-- it may extract a fragment of a codepoint.
+char :: Monad m => Word8 -> ParserT m Word8
+char = satisfy . (==)
 
 -- | Parse any token ("Word8"). The result is retained as a "Word8".
 anyToken :: Monad m => ParserT m Word8
 anyToken = token Just
 {-# INLINE anyToken #-}
+
+-- | Parse one token ("Word8") using the predicate. The result is retained as
+-- a "Word8".
+satisfy :: Monad m => (Word8 -> Bool) -> ParserT m Word8
+satisfy f = token $ \x -> if f x then Just x else Nothing
+{-# INLINE satisfy #-}
 
 -- | Parse one of the given tokens ("Word8"). The result is retained as a
 -- "Word8".
