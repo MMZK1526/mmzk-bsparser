@@ -34,6 +34,8 @@ instance ByteStringLike Text where
 
 toChar :: Word8 -> Char
 toChar = chr . fromIntegral
+{-# INLINE toChar #-}
 
 fromChar :: Char -> Word8
 fromChar = fromIntegral . ord
+{-# INLINE fromChar #-}
