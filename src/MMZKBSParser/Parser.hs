@@ -12,34 +12,37 @@ import           Data.Functor.Identity
 import           Data.Word
 import           MMZKBSParser.Convert
 
-data ParseState = ParseState { parseStr   :: ByteString
-                             , parseIndex :: Int
-                             , bitOffset  :: Int
-                             , allowBadCP :: Bool }
-  deriving Eq
+data ParseState m = ParseState { parseStr    :: ByteString
+                               , parseIndex  :: Int
+                               , bitOffset   :: Int
+                               , allowBadCP  :: Bool
+                               , spaceParser :: ParserT m () }
 
-instance Ord ParseState where
+instance Eq (ParseState m) where
+  a == b = parseIndex a == parseIndex b && bitOffset a == bitOffset b
+
+instance Ord (ParseState m) where
   a <= b = (parseIndex a < parseIndex b)
         || (parseIndex a == parseIndex b && bitOffset a <= bitOffset b)
 
-incPS :: ParseState -> ParseState
+incPS :: ParseState m -> ParseState m
 incPS = addPS 1
 {-# INLINE incPS #-}
 
-addPS :: Int -> ParseState -> ParseState
+addPS :: Int -> ParseState m -> ParseState m
 addPS n ps = ps { parseIndex = parseIndex ps + n }
 {-# INLINE addPS #-}
 
-headPS :: ParseState -> Maybe Word8
+headPS :: ParseState m -> Maybe Word8
 headPS ps = BS.indexMaybe (parseStr ps) (parseIndex ps)
 {-# INLINE headPS #-}
 
-firstNPS :: Int -> ParseState -> ByteString
+firstNPS :: Int -> ParseState m -> ByteString
 firstNPS n ps = BS.take n $ BS.drop (parseIndex ps) (parseStr ps)
 {-# INLINE firstNPS #-}
 
 newtype ParserT m a
-  = ParserT { runParserT :: ParseState -> m (Maybe a, ParseState) }
+  = ParserT { runParserT :: ParseState m -> m (Maybe a, ParseState m) }
 
 type Parser a = ParserT Identity a
 
@@ -81,8 +84,8 @@ instance MonadTrans ParserT where
 
 parseT :: Monad m => ByteStringLike s => ParserT m a -> s -> m (Maybe a)
 parseT parser str = fst <$> runParserT parser ParseState
-    { parseIndex = 0, parseStr = toByteString str, allowBadCP = False
-    , bitOffset  = 0 }
+    { parseIndex = 0, parseStr    = toByteString str, allowBadCP = False
+    , bitOffset  = 0, spaceParser = pure () }
 
 parse :: ByteStringLike s => Parser a -> s -> Maybe a
 parse = (runIdentity .) . parseT
@@ -93,7 +96,7 @@ parse = (runIdentity .) . parseT
 --------------------------------------------------------------------------------
 
 -- | Get the current "ParseState".
-inspect :: Monad m => ParserT m ParseState
+inspect :: Monad m => ParserT m (ParseState m)
 inspect = ParserT $ \ps -> pure (Just ps, ps)
 {-# INLINE inspect #-}
 
@@ -222,22 +225,22 @@ range m n p = go m
                             Just a  -> (a :) <$> og (d - 1)
 
 -- | Parse a list of contents separated by a separator.
-sepBy :: Monad m => ParserT m a -> ParserT m s -> ParserT m [a]
-sepBy pa ps = sepBy1 pa ps <|> pure []
+sepBy :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
+sepBy ps pa = sepBy1 ps pa <|> pure []
 
 -- | Parse a list of contents separated by a separator where the latter can
 -- optionally appear at the end.
-sepEndBy :: Monad m => ParserT m a -> ParserT m s -> ParserT m [a]
-sepEndBy pa ps = sepBy pa ps <* optional ps
+sepEndBy :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
+sepEndBy ps pa = sepBy ps pa <* optional ps
 
 -- | Parse a non-empty list of contents separated by a separator.
-sepBy1 :: Monad m => ParserT m a -> ParserT m s -> ParserT m [a]
-sepBy1 pa ps = liftM2 (:) pa (many (ps >> pa))
+sepBy1 :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
+sepBy1 ps pa = liftM2 (:) pa (many (ps >> pa))
 
 -- | Parse a non-empty list of contents separated by a separator where the
 -- latter can optionally appear at the end.
-sepEndBy1 :: Monad m => ParserT m a -> ParserT m s -> ParserT m [a]
-sepEndBy1 pa ps = sepBy1 pa ps <* optional ps
+sepEndBy1 :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
+sepEndBy1 ps pa = sepBy1 ps pa <* optional ps
 
 -- | Use the "ParserT" and map the result by the given function. Fails if it
 -- returns Nothing.

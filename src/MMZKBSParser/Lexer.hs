@@ -9,6 +9,12 @@ import           Data.Text (Text)
 import           MMZKBSParser.Convert
 import           MMZKBSParser.Parser
 
+-- | Use the "ParserT", then consume the spaces that follows. Spaces are defined
+-- by "spaceParser" of "ParseState", which is by default @pure ()@.
+lexer :: Monad m => ParserT m a -> ParserT m a
+lexer = (<* fmap spaceParser inspect)
+{-# INLINE lexer #-}
+
 
 --------------------------------------------------------------------------------
 -- String
