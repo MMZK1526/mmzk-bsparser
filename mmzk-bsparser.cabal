@@ -35,6 +35,7 @@ library
 
     other-modules:
         MMZKBSParser.Convert,
+        MMZKBSParser.Lexer.Regex
         MMZKBSParser.Parser
 
     other-extensions:
