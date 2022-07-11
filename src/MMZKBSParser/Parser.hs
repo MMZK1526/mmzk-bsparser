@@ -19,7 +19,7 @@ data ParseState = ParseState { parseStr   :: ByteString
   deriving Eq
 
 instance Ord ParseState where
-  a <= b = (parseIndex a < parseIndex b) 
+  a <= b = (parseIndex a < parseIndex b)
         || (parseIndex a == parseIndex b && bitOffset a <= bitOffset b)
 
 incPS :: ParseState -> ParseState
@@ -132,7 +132,7 @@ tokens n f = ParserT $ \ps -> pure $ case f . fromByteString $ firstNPS n ps of
 -- returns "Nothing", fail the "ParserT". If the codepoint is invalid, the
 -- behaviour is determined by "allowBadCP" of the "ParserState".
 charToken :: Monad m => (Char -> Maybe a) -> ParserT m a
-charToken f = ParserT $ \ps -> return 
+charToken f = ParserT $ \ps -> return
             $ case BSU.decode (BS.drop (parseIndex ps) (parseStr ps)) of
   Nothing      -> (Nothing, ps)
   Just (ch, i) -> case ch of
@@ -238,3 +238,9 @@ sepBy1 pa ps = liftM2 (:) pa (many (ps >> pa))
 -- latter can optionally appear at the end.
 sepEndBy1 :: Monad m => ParserT m a -> ParserT m s -> ParserT m [a]
 sepEndBy1 pa ps = sepBy1 pa ps <* optional ps
+
+-- | Use the "ParserT" and map the result by the given function. Fails if it
+-- returns Nothing.
+pmap :: Monad m => (b -> Maybe a) -> ParserT m b -> ParserT m a
+pmap f p = p >>= maybe empty pure . f
+{-# INLINE pmap  #-}
