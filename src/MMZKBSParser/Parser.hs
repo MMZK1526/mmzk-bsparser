@@ -105,6 +105,11 @@ setAllowBadCP :: Monad m => Bool -> ParserT m ()
 setAllowBadCP val = ParserT $ \ps -> pure (Just (), ps { allowBadCP = val })
 {-# INLINE setAllowBadCP #-}
 
+-- | Set the "ParserT" used to consume extra spaces.
+setSpaceParser :: Monad m => ParserT m a -> ParserT m ()
+setSpaceParser p = ParserT $ \ps -> pure (Just (), ps { spaceParser = void p })
+{-# INLINE setSpaceParser #-}
+
 -- | Flush the remaining unprocessed bits in the current token ("Word8"). If the
 -- input "ByteString" contains both binary and UTF-8, call this function
 -- whenever switching from parsing binary to parsing UTF-8. Returns the number
