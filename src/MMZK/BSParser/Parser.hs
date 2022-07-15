@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 
-module MMZKBSParser.Parser where
+module MMZK.BSParser.Parser where
 
 import qualified Control.Applicative as A
 import           Control.Monad
@@ -10,7 +10,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BSU
 import           Data.Functor.Identity
 import           Data.Word
-import           MMZKBSParser.Convert
+import           MMZK.BSParser.Convert
 
 data ParseState m = ParseState { parseStr    :: ByteString
                                , parseIndex  :: Int

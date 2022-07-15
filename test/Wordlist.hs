@@ -1,6 +1,6 @@
-import           MMZKBSParser
-import qualified MMZKBSParser.ASCII as PA
-import qualified MMZKBSParser.Lexer as L
+import           MMZK.BSParser
+import qualified MMZK.BSParser.ASCII as PA
+import qualified MMZK.BSParser.Lexer as L
 import           Test.HUnit
 
 main :: IO ()

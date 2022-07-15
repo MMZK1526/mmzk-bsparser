@@ -1,10 +1,10 @@
 -- Utility parsers for single 8-bit ASCII and Latin-1 "Char"s.
 
-module MMZKBSParser.ASCII where
+module MMZK.BSParser.ASCII where
 
-import           MMZKBSParser.Convert
-import           MMZKBSParser.Parser
-import qualified MMZKBSParser.Word8 as P8
+import           MMZK.BSParser.Convert
+import           MMZK.BSParser.Parser
+import qualified MMZK.BSParser.Word8 as P8
 
 
 --------------------------------------------------------------------------------

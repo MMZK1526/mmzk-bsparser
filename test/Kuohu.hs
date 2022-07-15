@@ -1,5 +1,5 @@
-import           MMZKBSParser
-import qualified MMZKBSParser.ASCII as PA
+import           MMZK.BSParser
+import qualified MMZK.BSParser.ASCII as PA
 import           Test.HUnit
 
 -- | Example: Nested parenthesis, brackets, braces, and chevrons.

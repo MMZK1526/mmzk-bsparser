@@ -2,7 +2,7 @@
 
 -- Contains a uniform interface converting UTF-8 String and Text to ByteString.
 
-module MMZKBSParser.Convert where
+module MMZK.BSParser.Convert where
 
 import           Data.ByteString (ByteString, pack, unpack)
 import qualified Data.ByteString.UTF8 as BSU

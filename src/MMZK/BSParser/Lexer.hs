@@ -1,13 +1,13 @@
 -- Utility lexers for characters, strings and digits.
 
-module MMZKBSParser.Lexer where
+module MMZK.BSParser.Lexer where
 
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.Char
 import           Data.Text (Text)
-import           MMZKBSParser.Convert
-import           MMZKBSParser.Parser
+import           MMZK.BSParser.Convert
+import           MMZK.BSParser.Parser
 
 -- | Use the "ParserT", then consume the spaces that follows. Spaces are defined
 -- by "spaceParser" of "ParseState", which is by default @pure ()@.

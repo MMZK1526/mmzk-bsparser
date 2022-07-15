@@ -1,9 +1,9 @@
 -- Utility parsers for single "Word8" ASCII and Latin-1 tokens.
 
-module MMZKBSParser.Word8 where
+module MMZK.BSParser.Word8 where
 
 import           Data.Word
-import           MMZKBSParser.Parser
+import           MMZK.BSParser.Parser
 
 
 --------------------------------------------------------------------------------

@@ -1,11 +1,11 @@
-module MMZKBSParser.Lexer.Regex where
+module MMZK.BSParser.Lexer.Regex where
 
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.Maybe
-import           MMZKBSParser.Convert
-import           MMZKBSParser.Parser
-import qualified MMZKBSParser.Lexer as L
+import           MMZK.BSParser.Convert
+import           MMZK.BSParser.Parser
+import qualified MMZK.BSParser.Lexer as L
 
 data Regex = Literal  ByteString -- ^ abc
            | OneOf    [Char]     -- ^ [abc]
