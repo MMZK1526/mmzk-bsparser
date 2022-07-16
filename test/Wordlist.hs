@@ -4,14 +4,20 @@ import qualified MMZK.BSParser.Lexer as L
 import           Test.HUnit
 
 main :: IO ()
-main = runTestTTAndExit $ TestList [test1, test2]
+main = runTestTTAndExit $ TestList [test1, test2, test3]
   where
     test1 = TestLabel "Wordlist 1"
           $ TestList [ testSingleValid1 sithList sith
-                     , testSingleInvalid1 sithE ]
+                     , testSingleInvalid1 sithE
+                     , testSingleInvalid1 jedi ]
     test2 = TestLabel "Wordlist 2"
           $ TestList [ testSingleValid2 sithList sith
-                     , testSingleValid2 sithList sithE ]
+                     , testSingleValid2 sithList sithE
+                     , testSingleInvalid1 jedi ]
+    test3 = TestLabel "Wordlist 3"
+          $ TestList [ testSingleValid3 sithList sith
+                     , testSingleValid3 sithList sithE
+                     , testSingleValid3 jediList jedi ]
 
 testSingleValid1 :: [String] -> String -> Test
 testSingleValid1 exp str = TestCase 
@@ -33,12 +39,24 @@ testSingleInvalid2 str = TestCase
                        $ assertEqual ("Test parsing " ++ show str ++ ":")
                                      Nothing (parseWordlist2 str)
 
-sith, sithE :: String
+testSingleValid3 :: [String] -> String -> Test
+testSingleValid3 exp str = TestCase 
+                         $ assertEqual ("Test parsing" ++ show str ++ ":")
+                                       (Just exp) (parseWordlist3 str)
+
+testSingleInvalid3 :: String -> Test
+testSingleInvalid3 str = TestCase
+                       $ assertEqual ("Test parsing " ++ show str ++ ":")
+                                     Nothing (parseWordlist3 str)
+
+sith, sithE, jedi :: String
 sith  = "Darth,Sidious,Maul,Tyranus,Vader"
 sithE = " Darth, Sidious, Maul, Tyranus, Vader "
+jedi  = "Obi-Wan, Infil'a, Yoda"
 
-sithList :: [String]
+sithList, jediList :: [String]
 sithList = ["Darth", "Sidious", "Maul", "Tyranus", "Vader"]
+jediList = ["Obi-Wan", "Infil'a", "Yoda"]
 
 -- | Parse a Wordlist, which is a list of words (formed by English letters)
 -- separated by ','s without any extra space. For example, "foo", "apple,bear",
@@ -57,3 +75,13 @@ parseWordlist2 = parse (wordlistParser2 <* eof)
       setSpaceParser (many PA.space32)
       lexer $ pure () -- Parse leading spaces
       sepBy (lexer $ PA.char ',') (lexer $ some PA.alpha)
+
+-- | Parse a Wordlist, but allows the words to contain "'" and "-".
+parseWordlist3 :: ByteStringLike s => s -> Maybe [String]
+parseWordlist3 = parse (wordlistParser3 <* eof)
+  where
+    wordlistParser3 = do
+      setSpaceParser (many PA.space32)
+      lexer $ pure () -- Parse leading spaces
+      sepBy (lexer $ PA.char ',') 
+           (lexer $ some (choice [PA.alpha, PA.char '-', PA.char '\'']))
