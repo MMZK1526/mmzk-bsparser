@@ -11,7 +11,33 @@ The library is one of my side-projects and is inspired by many other in function
 TODO
 
 ## Installation
-TODO
+Since this library is not yet published, we need to install it manually before using it. Before installation, we assume that `ghc` and `cabal` are available ([here](https://www.haskell.org/cabal/) on how to install them).
+
+In this section, we will install the library to a new `cabal` workspace.
+
+1. Clone this repo.
+2. Create a new `cabal` workspace named "playground" by doing the following in terminal:
+    ```bash
+    mkdir playground
+    cd playground
+    cabal init
+    ```
+    This will generate a `cabal` workspace with the source code in the "app/" folder.
+3. At the root directory of "playground", create a new file called "cabal.project". Fill it with the following content:
+    ```
+    packages: ./
+          ../mmzk-bsparser/
+    ```
+4. Now we can import the library. For example, in "app/Main.hs", we can write:
+    ```Haskell
+    module Main where
+
+    import MMZK.BSParser
+
+    main :: IO ()
+    main = print $ parse eof ""
+    ```
+5. Run `cabal run`, the library and the `Main` module would be built and the result should be `Just ()`, showing that the `eof` parser (which is equivalent to parsing an empty string when used alone) is successful. If we change the string to a non-empty one and run `cabal run` again, it should print out `Nothing`.
 
 ## Quickstart
 TODO
