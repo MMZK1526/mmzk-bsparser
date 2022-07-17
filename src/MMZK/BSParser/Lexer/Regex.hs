@@ -18,7 +18,7 @@ data Regex = Literal  ByteString -- ^ abc
            | AnyChar             -- ^ .
 
 -- | Parse a "ByteString" according to the given "Regex".
-regexParser :: Monad m => Regex -> ParserT m ByteString
+regexParser :: Monad m => Regex -> BSParserT e m ByteString
 regexParser (Literal str)      = L.byteString str
 regexParser (OneOf chs)        = toByteString . (: []) <$> L.oneOf chs
 regexParser (NoneOf chs)       = toByteString . (: []) <$> L.noneOf chs

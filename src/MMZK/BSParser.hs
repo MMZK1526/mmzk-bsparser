@@ -1,5 +1,5 @@
 module MMZK.BSParser 
-  ( ParserT, Parser, ByteStringLike(..), fromChar, toChar, parseT, parse
+  ( BSParserT, BSParser, ByteStringLike(..), fromChar, toChar, parseT, parse
   , inspect, token, tokens, eof, neg, lookAhead, empty, (<|>), choice, many
   , some, parens, setAllowBadCP, flush, (<&>), charToken, lexer, setSpaceParser
   , range, sepBy, sepBy1, sepEndBy, sepEndBy1, ParseState(..), ErrorSpan ) where

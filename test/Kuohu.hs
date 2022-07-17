@@ -12,6 +12,9 @@ data Kuohu = Empty
            | Chevr Kuohu
   deriving Show
 
+-- | A basic parser type that uses "String" as the custom error type.
+type Parser a = BSParser String a
+
 -- | Basic pair examples.
 simpleParens, simpleBracks, simpleBraces, simpleChevrs :: String
 simpleParens = "()"
@@ -65,12 +68,11 @@ formatKuohu (Brack kuohu)  = "[" ++ formatKuohu kuohu ++ "]"
 formatKuohu (Brace kuohu)  = "{" ++ formatKuohu kuohu ++ "}"
 formatKuohu (Chevr kuohu)  = "<" ++ formatKuohu kuohu ++ ">"
 
-parseKuohu :: ByteStringLike s => s -> Either [ErrorSpan] Kuohu
+parseKuohu :: ByteStringLike s => s -> Either [ErrorSpan String] Kuohu
 parseKuohu = parse (kuohuParser <* eof)
 
 kuohuParser :: Parser Kuohu
 kuohuParser = do
-  -- Print a message whenever encoutering an application
   kuohus <- many singleNestParser
   return $ case length kuohus of
     0 -> Empty

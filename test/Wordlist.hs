@@ -4,6 +4,9 @@ import qualified MMZK.BSParser.Lexer as L
 import           Data.Either
 import           Test.HUnit
 
+-- | A basic parser type that uses "String" as the custom error type.
+type Parser a = BSParser String a
+
 main :: IO ()
 main = runTestTTAndExit $ TestList [test1, test2, test3]
   where
@@ -63,13 +66,13 @@ jediList = ["Obi-Wan", "Infil'a", "Yoda"]
 -- separated by ','s without any extra space. For example, "foo", "apple,bear",
 -- and "Darth,Sidious,Maul,Tyranus,Vader" are Wordlists, while "   spaces",
 -- "I-have-dashes", "spaces, after, comma" and "trailing,comma," are not.
-parseWordlist1 :: ByteStringLike s => s -> Either [ErrorSpan] [String]
+parseWordlist1 :: ByteStringLike s => s -> Either [ErrorSpan String] [String]
 parseWordlist1 = parse (wordlistParser1 <* eof)
   where
     wordlistParser1 = sepBy (PA.char ',') (some PA.alpha)
 
 -- | Parse a Wordlist, but allows extra spaces (' ') anywhere between the words.
-parseWordlist2 :: ByteStringLike s => s -> Either [ErrorSpan] [String]
+parseWordlist2 :: ByteStringLike s => s -> Either [ErrorSpan String] [String]
 parseWordlist2 = parse (wordlistParser2 <* eof)
   where
     wordlistParser2 = do
@@ -78,7 +81,7 @@ parseWordlist2 = parse (wordlistParser2 <* eof)
       sepBy (lexer $ PA.char ',') (lexer $ some PA.alpha)
 
 -- | Parse a Wordlist, but allows the words to contain "'" and "-".
-parseWordlist3 :: ByteStringLike s => s -> Either [ErrorSpan] [String]
+parseWordlist3 :: ByteStringLike s => s -> Either [ErrorSpan String] [String]
 parseWordlist3 = parse (wordlistParser3 <* eof)
   where
     wordlistParser3 = do

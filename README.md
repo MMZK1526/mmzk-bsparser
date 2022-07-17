@@ -26,7 +26,7 @@ In this section, we will install the library to a new `cabal` workspace.
 3. At the root directory of "playground", create a new file called "cabal.project". Fill it with the following content:
     ```
     packages: ./
-          ../mmzk-bsparser/
+              ../mmzk-bsparser/
     ```
 4. Now we can import the library. For example, in "app/Main.hs", we can write:
     ```Haskell

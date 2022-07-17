@@ -1,24 +1,28 @@
 -- Error types as well as the default pretty-print function for errors.
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module MMZK.BSParser.Error where
 
-import           Data.List
 import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
+import           Data.Text (Text, pack)
+import qualified Data.Text as T
 
--- | A class isomorphic to "Show" used to provide an alternative "pretty-print".
+-- | A class similar to "Show", but returns a "Text". It is used to provide an
+-- alternative "pretty-print".
 class PP a where
-  pp :: a -> String
+  pp :: a -> Text
 
 -- | A "Char" token, "String" token, or end-of-input.
 data Token = CToken Char | SToken String | EOI
   deriving (Eq, Ord, Show)
 
 instance PP Token where
-  pp (CToken ch)  = '\'' : ch : "'"
-  pp (SToken str) = '"' : str ++ "\""
+  pp (CToken ch)  = T.concat ["'", T.singleton ch, "'"]
+  pp (SToken str) = T.concat ["\"", pack str, "\""]
   pp EOI          = "[end-of-input]"
 
 -- | A "Token" with an optional label used to describe an unexpected token
@@ -28,7 +32,7 @@ data UItem = UItem (Maybe String) (Maybe Token)
 
 instance PP UItem where
   pp (UItem Nothing tk)    = maybe "" pp tk
-  pp (UItem (Just str) tk) = maybe str (((str ++ " ") ++) . pp) tk
+  pp (UItem (Just str) tk) = maybe (pack str) (((pack str <> " ") <>) . pp) tk
 
 -- | A group of "Token" with an optional label used to describe the group of
 -- tokens expected for a parsing error.
@@ -45,63 +49,63 @@ instance PP EItem where
   pp (EItem mStr tks) = case mStr of
     Nothing  -> go tkList
     Just str -> case tkList of
-      []   -> str
-      [tk] -> str ++ " " ++ pp tk
-      tks' -> str ++ " (" ++ go tks' ++ ")"
+      []   -> pack str
+      [tk] -> pack str <> " " <> pp tk
+      tks' -> pack str <> " (" <> go tks' <> ")"
     where
       tkList         = S.toAscList tks
       go []          = ""
       go [tk]        = pp tk
-      go [tk, tk']   = pp tk ++ " or " ++ pp tk'
-      go (tk : tks') = pp tk ++ ", " ++ go tks'
+      go [tk, tk']   = pp tk <> " or " <> pp tk'
+      go (tk : tks') = pp tk <> ", " <> go tks'
 
 -- | The error type for "BSParser", containing the (optional) unexpected item,
 -- the set of expect items, and the (possibly empty) list of custom error
 -- messages.
-data PError = BasicErr { unexpected  :: UItem
-                       , expecting   :: Map (Maybe String) (Set Token)
-                       , errMessages :: [String] }
-            | BadUTF8
+data PError e = BasicErr { unexpected  :: UItem
+                         , expecting   :: Map (Maybe String) (Set Token)
+                         , errMessages :: [e] }
+              | BadUTF8
   deriving (Eq, Ord, Show)
 
-instance PP PError where
-  pp err@BasicErr {} = concat [go1, go2, go3]
+instance PP e => PP (PError e) where
+  pp err@BasicErr {} = T.concat [go1, go2, go3]
     where
       go1 = case pp $ unexpected err of
         ""  -> ""
-        str -> "Unexpected " ++ str ++ ".\n"
-      go2 = case filter (not . null) . fmap (pp . uncurry EItem) 
-                                     $ M.toList (expecting err) of
+        str -> "Unexpected " <> str <> ".\n"
+      go2 = case filter (not . T.null) . fmap (pp . uncurry EItem) 
+                                       $ M.toList (expecting err) of
         []   -> ""
-        strs -> "Expecting " ++ intercalate "; " strs ++ ".\n"
+        strs -> "Expecting " <> T.intercalate "; " strs <> ".\n"
       go3 = case errMessages err of
         []   -> ""
-        strs -> intercalate "\n" strs ++ "\n"
+        strs -> T.intercalate "\n" (pp <$> strs) <> "\n"
   pp _               = "Invalid UTF-8 codepoint.\n"
 
 -- ｜ A "PError" together with the location information.
-data ErrorSpan = ErrorSpan { esLocation :: Int -- ^ Position of the start
-                           , esLength   :: Int -- ^ Length of the error
-                           , esError    :: PError }
+data ErrorSpan e = ErrorSpan { esLocation :: Int -- ^ Position of the start
+                             , esLength   :: Int -- ^ Length of the error
+                             , esError    :: PError e }
   deriving (Show)
 
-instance Eq ErrorSpan where
+instance Eq (ErrorSpan e) where
   es1 == es2 = (esLocation es1, esLength es1) == (esLocation es2, esLength es2)
 
-instance Ord ErrorSpan where
+instance Ord (ErrorSpan e) where
   es1 <= es2 = (esLocation es1, esLength es1) <= (esLocation es2, esLength es2)
 
 -- | The empty "PError".
-nil :: PError
+nil :: PError e
 nil = BasicErr (UItem Nothing Nothing) M.empty []
 {-# INLINE nil #-}
 
 -- | Set the unexpected item of the "PError" with the given label and token.
-setUnexpected :: Maybe String -> Maybe Token -> PError -> PError
+setUnexpected :: Maybe String -> Maybe Token -> PError e -> PError e
 setUnexpected lb tk err = err { unexpected = UItem lb tk }
 {-# INLINE setUnexpected #-}
 
 -- | Append a new custom message to the "PError".
-addMessage :: String -> PError -> PError
+addMessage :: e -> PError e -> PError e
 addMessage str err = err { errMessages = str : errMessages err }
 {-# INLINE addMessage #-}

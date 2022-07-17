@@ -16,65 +16,65 @@ import           Data.Word
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Error
 
-data ParseState m = ParseState { parseStr    :: ByteString
-                               , parseIndex  :: Int
-                               , bitOffset   :: Int
-                               , allowBadCP  :: Bool
-                               , spaceParser :: ParserT m ()
-                               , parseErrors :: Set ErrorSpan }
+data ParseState e m = ParseState { parseStr    :: ByteString
+                                 , parseIndex  :: Int
+                                 , bitOffset   :: Int
+                                 , allowBadCP  :: Bool
+                                 , spaceParser :: BSParserT e m ()
+                                 , parseErrors :: Set (ErrorSpan e) }
 
-instance Eq (ParseState m) where
+instance Eq (ParseState e m) where
   a == b = parseIndex a == parseIndex b && bitOffset a == bitOffset b
 
-instance Ord (ParseState m) where
+instance Ord (ParseState e m) where
   a <= b = (parseIndex a < parseIndex b)
         || (parseIndex a == parseIndex b && bitOffset a <= bitOffset b)
 
-incPS :: ParseState m -> ParseState m
+incPS :: ParseState e m -> ParseState e m
 incPS = addPS 1
 {-# INLINE incPS #-}
 
-addPS :: Int -> ParseState m -> ParseState m
+addPS :: Int -> ParseState e m -> ParseState e m
 addPS n ps = ps { parseIndex = parseIndex ps + n }
 {-# INLINE addPS #-}
 
-headPS :: ParseState m -> Maybe Word8
+headPS :: ParseState e m -> Maybe Word8
 headPS ps = BS.indexMaybe (parseStr ps) (parseIndex ps)
 {-# INLINE headPS #-}
 
-firstNPS :: Int -> ParseState m -> ByteString
+firstNPS :: Int -> ParseState e m -> ByteString
 firstNPS n ps = BS.take n $ BS.drop (parseIndex ps) (parseStr ps)
 {-# INLINE firstNPS #-}
 
-addErr :: Int -> Int -> PError -> ParseState m -> ParseState m
+addErr :: Int -> Int -> PError e -> ParseState e m -> ParseState e m
 addErr loc len err ps = ps { parseErrors = S.insert errSpan (parseErrors ps) }
   where
     errSpan = ErrorSpan loc len err
 {-# INLINE addErr #-}
 
-newtype ParserT m a
-  = ParserT { runParserT :: ParseState m -> m (Maybe a, ParseState m) }
+newtype BSParserT e m a
+  = BSParserT { runParserT :: ParseState e m -> m (Maybe a, ParseState e m) }
 
-type Parser a = ParserT Identity a
+type BSParser e a = BSParserT e Identity a
 
-instance Monad m => Functor (ParserT m) where
+instance Monad m => Functor (BSParserT e m) where
   fmap = liftM
 
-instance Monad m => Applicative (ParserT m) where
+instance Monad m => Applicative (BSParserT e m) where
   pure  = return
   (<*>) = ap
 
-instance Monad m => Monad (ParserT m) where
-  return a = ParserT $ return . (Just a ,)
-  f >>= g  = ParserT $ \ps -> do
+instance Monad m => Monad (BSParserT e m) where
+  return a = BSParserT $ return . (Just a ,)
+  f >>= g  = BSParserT $ \ps -> do
     (ma, ps') <- runParserT f ps
     case ma of
       Nothing -> pure (Nothing, ps')
       Just a  -> runParserT (g a) ps'
 
-instance Monad m => A.Alternative (ParserT m) where
-  empty   = ParserT $ \ps -> pure (Nothing, addErr (parseIndex ps) 0 nil ps)
-  f <|> g = ParserT $ \ps -> do
+instance Monad m => A.Alternative (BSParserT e m) where
+  empty   = BSParserT $ \ps -> pure (Nothing, addErr (parseIndex ps) 0 nil ps)
+  f <|> g = BSParserT $ \ps -> do
     let psO = ps { parseErrors = S.empty }
     (ma, ps') <- runParserT f psO
     case ma of
@@ -99,13 +99,13 @@ instance Monad m => A.Alternative (ParserT m) where
           success -> pure (success, ps'' { parseErrors = parseErrors ps })
       success -> pure (success, ps' { parseErrors = parseErrors ps })
 
-instance Monad m => MonadPlus (ParserT m)
+instance Monad m => MonadPlus (BSParserT e m)
 
-instance Monad m => MonadFail (ParserT m) where
+instance Monad m => MonadFail (BSParserT e m) where
   fail = const A.empty
 
-instance MonadTrans ParserT where
-  lift m = ParserT $ \ps -> (, ps) . Just <$> m
+instance MonadTrans (BSParserT e) where
+  lift m = BSParserT $ \ps -> (, ps) . Just <$> m
 
 
 --------------------------------------------------------------------------------
@@ -113,7 +113,7 @@ instance MonadTrans ParserT where
 --------------------------------------------------------------------------------
 
 parseT :: Monad m => ByteStringLike s
-       => ParserT m a -> s -> m (Either [ErrorSpan] a)
+       => BSParserT e m a -> s -> m (Either [ErrorSpan e] a)
 parseT parser str = do
   (result, ps) <- runParserT parser initState
   return $ maybe (Left . S.toAscList $ parseErrors ps) Right result
@@ -125,7 +125,7 @@ parseT parser str = do
                            , spaceParser = pure ()
                            , parseErrors = S.empty }
 
-parse :: ByteStringLike s => Parser a -> s -> Either [ErrorSpan] a
+parse :: ByteStringLike s => BSParser e a -> s -> Either [ErrorSpan e] a
 parse = (runIdentity .) . parseT
 
 
@@ -134,34 +134,34 @@ parse = (runIdentity .) . parseT
 --------------------------------------------------------------------------------
 
 -- | Get the current "ParseState".
-inspect :: Monad m => ParserT m (ParseState m)
-inspect = ParserT $ \ps -> pure (Just ps, ps)
+inspect :: Monad m => BSParserT e m (ParseState e m)
+inspect = BSParserT $ \ps -> pure (Just ps, ps)
 {-# INLINE inspect #-}
 
 -- | Set whether bad codepoints are allowed.
-setAllowBadCP :: Monad m => Bool -> ParserT m ()
-setAllowBadCP val = ParserT $ \ps -> pure (Just (), ps { allowBadCP = val })
+setAllowBadCP :: Monad m => Bool -> BSParserT e m ()
+setAllowBadCP val = BSParserT $ \ps -> pure (Just (), ps { allowBadCP = val })
 {-# INLINE setAllowBadCP #-}
 
--- | Set the "ParserT" used to consume extra spaces.
-setSpaceParser :: Monad m => ParserT m a -> ParserT m ()
-setSpaceParser p = ParserT $ \ps -> pure (Just (), ps { spaceParser = void p })
+-- | Set the "BSParserT" used to consume extra spaces.
+setSpaceParser :: Monad m => BSParserT e m a -> BSParserT e m ()
+setSpaceParser p = BSParserT $ \ps -> pure (Just (), ps { spaceParser = void p })
 {-# INLINE setSpaceParser #-}
 
 -- | Flush the remaining unprocessed bits in the current token ("Word8"). If the
 -- input "ByteString" contains both binary and UTF-8, call this function
 -- whenever switching from parsing binary to parsing UTF-8. Returns the number
 -- of bits flushed.
-flush :: Monad m => ParserT m Int
-flush = ParserT $ \ps -> pure $ case bitOffset ps of
+flush :: Monad m => BSParserT e m Int
+flush = BSParserT $ \ps -> pure $ case bitOffset ps of
   0 -> (Just 0, ps)
   n -> (Just (8 - n), incPS ps)
 {-# INLINE flush #-}
 
 -- | Parse one token ("Word8") using the predicate function. If the predicate
--- returns "Nothing", fail the "ParserT".
-token :: Monad m => (Word8 -> Maybe a) -> ParserT m a
-token f = ParserT $ \ps -> return $ case headPS ps of
+-- returns "Nothing", fail the "BSParserT".
+token :: Monad m => (Word8 -> Maybe a) -> BSParserT e m a
+token f = BSParserT $ \ps -> return $ case headPS ps of
   Nothing -> (Nothing, addErr (parseIndex ps) 1 eoiErr ps)
   Just ch -> case f ch of
     Nothing -> (Nothing, addErr (parseIndex ps) 1 (mismatchErr ch) ps)
@@ -173,9 +173,9 @@ token f = ParserT $ \ps -> return $ case headPS ps of
                                                     $ toChar ch') []
 
 -- | Parse the first n tokens ("ByteString") using the predicate function. If
--- the predicate returns "Nothing", fail the "ParserT".
-tokens :: Monad m => ByteStringLike s => Int -> (s -> Maybe a) -> ParserT m a
-tokens n f = ParserT $ \ps -> do
+-- the predicate returns "Nothing", fail the "BSParserT".
+tokens :: Monad m => ByteStringLike s => Int -> (s -> Maybe a) -> BSParserT e m a
+tokens n f = BSParserT $ \ps -> do
   let bs  = firstNPS n ps
   let len = BS.length bs
   pure $ case f . fromByteString $ bs of
@@ -187,10 +187,10 @@ tokens n f = ParserT $ \ps -> do
                                                     $ fromByteString bs') []
 
 -- | Parse one "Char" codepoint using the predicate function. If the predicate
--- returns "Nothing", fail the "ParserT". If the codepoint is invalid, the
+-- returns "Nothing", fail the "BSParserT". If the codepoint is invalid, the
 -- behaviour is determined by "allowBadCP" of the "ParserState".
-charToken :: Monad m => (Char -> Maybe a) -> ParserT m a
-charToken f = ParserT $ \ps -> pure
+charToken :: Monad m => (Char -> Maybe a) -> BSParserT e m a
+charToken f = BSParserT $ \ps -> pure
             $ case BSU.decode (BS.drop (parseIndex ps) (parseStr ps)) of
   Nothing      -> (Nothing, addErr (parseIndex ps) 1 eoiErr ps)
   Just (ch, i) -> do
@@ -209,20 +209,20 @@ charToken f = ParserT $ \ps -> pure
                                                     $ ch') []
 
 -- | Parse the end-of-input.
-eof :: Monad m => ParserT m ()
-eof = ParserT $ \ps -> return . (, ps) $ case headPS ps of
+eof :: Monad m => BSParserT e m ()
+eof = BSParserT $ \ps -> return . (, ps) $ case headPS ps of
   Nothing -> Just ()
   Just _  -> Nothing
 
--- | Behave the same as "ParserT" except it does not consume any input or modify
+-- | Behave the same as "BSParserT" except it does not consume any input or modify
 -- any state.
-lookAhead :: Monad m => ParserT m a -> ParserT m a
-lookAhead p = ParserT $ \ps -> (, ps) . fst <$> runParserT p ps
+lookAhead :: Monad m => BSParserT e m a -> BSParserT e m a
+lookAhead p = BSParserT $ \ps -> (, ps) . fst <$> runParserT p ps
 
--- | Succeed iff the "ParserT" fails. Will not consume any input or modify any
+-- | Succeed iff the "BSParserT" fails. Will not consume any input or modify any
 -- state.
-neg :: Monad m => ParserT m a -> ParserT m ()
-neg p = ParserT $ \ps -> do
+neg :: Monad m => BSParserT e m a -> BSParserT e m ()
+neg p = BSParserT $ \ps -> do
   (ma, _) <- runParserT p ps
   return $ case ma of
     Nothing -> (Just (), ps)
@@ -233,55 +233,55 @@ neg p = ParserT $ \ps -> do
 -- Utility Combinators
 --------------------------------------------------------------------------------
 
--- | A "ParserT" that fails instantly.
-empty :: Monad m => ParserT m a
+-- | A "BSParserT" that fails instantly.
+empty :: Monad m => BSParserT e m a
 empty = A.empty
 {-# INLINE empty #-}
 
--- | Try the first "ParserT". If it fails, use the second one. When both fails,
+-- | Try the first "BSParserT". If it fails, use the second one. When both fails,
 -- if the errors occur at the same place, merge the errors; otherwise choose the
 -- error that is further away.
-(<|>) :: Monad m => ParserT m a -> ParserT m a -> ParserT m a
+(<|>) :: Monad m => BSParserT e m a -> BSParserT e m a -> BSParserT e m a
 (<|>) = (A.<|>)
 infixl 3 <|>
 {-# INLINE (<|>) #-}
 
--- | Attempt all "ParserT"s in the list without consuming the input, if it
--- succeeds, use the "ParserT" from the first argument. This operator acts as
+-- | Attempt all "BSParserT"s in the list without consuming the input, if it
+-- succeeds, use the "BSParserT" from the first argument. This operator acts as
 -- a constraint.
-(<&>) :: Monad m => ParserT m a -> [ParserT m b] -> ParserT m a
+(<&>) :: Monad m => BSParserT e m a -> [BSParserT e m b] -> BSParserT e m a
 p <&> pcs = mapM_ lookAhead pcs >> p
 infixl 2 <&>
 {-# INLINE (<&>) #-}
 
--- | Try all "ParserT"s until one of them parses successfully.
-choice :: Monad m => [ParserT m a] -> ParserT m a
+-- | Try all "BSParserT"s until one of them parses successfully.
+choice :: Monad m => [BSParserT e m a] -> BSParserT e m a
 choice = msum
 {-# INLINE choice #-}
 
 -- | Parse for left paren, content, and right paren, returning only the content.
-parens :: Monad m => ParserT m o -> ParserT m c -> ParserT m a -> ParserT m a
+parens :: Monad m => BSParserT e m o -> BSParserT e m c -> BSParserT e m a -> BSParserT e m a
 parens po pc pa = po >> pa <* pc
 {-# INLINE parens #-}
 
--- | Use the "ParserT" zero, one, or more times.
-many :: Monad m => ParserT m a -> ParserT m [a]
+-- | Use the "BSParserT" zero, one, or more times.
+many :: Monad m => BSParserT e m a -> BSParserT e m [a]
 many = A.many
 {-# INLINE many #-}
 
--- | Use the "ParserT" one or more times.
-some :: Monad m => ParserT m a -> ParserT m [a]
+-- | Use the "BSParserT" one or more times.
+some :: Monad m => BSParserT e m a -> BSParserT e m [a]
 some = A.some
 {-# INLINE some #-}
 
 -- | Parse zero or one occurrence of the content.
-optional :: Monad m => ParserT m a -> ParserT m (Maybe a)
+optional :: Monad m => BSParserT e m a -> BSParserT e m (Maybe a)
 optional = A.optional
 {-# INLINE optional #-}
 
 -- | Parse the content between m (inclusive) and n (exclusive) times. If n <= m,
 -- returns an empty list.
-range :: Monad m => Int -> Int -> ParserT m a -> ParserT m [a]
+range :: Monad m => Int -> Int -> BSParserT e m a -> BSParserT e m [a]
 range m n _
   | n <= m = pure []
 range m n p = go m
@@ -295,29 +295,29 @@ range m n p = go m
                             Just a  -> (a :) <$> og (d - 1)
 
 -- | Parse a list of contents separated by a separator.
-sepBy :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
+sepBy :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepBy ps pa = sepBy1 ps pa <|> pure []
 {-# INLINE sepBy #-}
 
 -- | Parse a list of contents separated by a separator where the latter can
 -- optionally appear at the end.
-sepEndBy :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
+sepEndBy :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepEndBy ps pa = sepBy ps pa <* optional ps
 {-# INLINE sepEndBy #-}
 
 -- | Parse a non-empty list of contents separated by a separator.
-sepBy1 :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
+sepBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepBy1 ps pa = liftM2 (:) pa (many (ps >> pa))
 {-# INLINE sepBy1 #-}
 
 -- | Parse a non-empty list of contents separated by a separator where the
 -- latter can optionally appear at the end.
-sepEndBy1 :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
+sepEndBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepEndBy1 ps pa = sepBy1 ps pa <* optional ps
 {-# INLINE sepEndBy1 #-}
 
--- | Use the "ParserT" and map the result by the given function. Fails if it
+-- | Use the "BSParserT" and map the result by the given function. Fails if it
 -- returns Nothing.
-pmap :: Monad m => (b -> Maybe a) -> ParserT m b -> ParserT m a
+pmap :: Monad m => (b -> Maybe a) -> BSParserT e m b -> BSParserT e m a
 pmap f p = p >>= maybe empty pure . f
 {-# INLINE pmap #-}
