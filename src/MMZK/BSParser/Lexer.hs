@@ -45,7 +45,7 @@ text = fmap fromByteString . byteString
 
 -- | Parse the given "Char".
 char :: Monad m => Char -> ParserT m Char
-char = fmap head . string . (: [])
+char ch = charToken $ \x -> if x == ch then Just x else Nothing
 
 -- | Parse one "Char" using the predicate.
 satisfy :: Monad m => (Char -> Bool) -> ParserT m Char

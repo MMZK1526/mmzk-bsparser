@@ -1,5 +1,6 @@
 import           MMZK.BSParser
 import qualified MMZK.BSParser.ASCII as PA
+import           Data.Either
 import           Test.HUnit
 
 -- | Example: Nested parenthesis, brackets, braces, and chevrons.
@@ -48,14 +49,13 @@ testInvalids = (. TestList . map testSingleInvalid) . TestLabel
 testSingleValid :: String -> Test
 testSingleValid kuohu = TestCase
                       $ assertEqual ("Test parsing \"" ++ kuohu ++ "\":")
-                                    (Just kuohu)
+                                    (Right kuohu)
                                     (fmap formatKuohu (parseKuohu kuohu))
 
 testSingleInvalid :: String -> Test
 testSingleInvalid kuohu = TestCase
-                        $ assertEqual ("Test parsing \"" ++ kuohu ++ "\":")
-                                      Nothing
-                                      (fmap formatKuohu (parseKuohu kuohu))
+                        $ assertBool ("Test parsing \"" ++ kuohu ++ "\":")
+                                      (isLeft $ parseKuohu kuohu)
 
 formatKuohu :: Kuohu -> String
 formatKuohu Empty          = ""
@@ -65,7 +65,7 @@ formatKuohu (Brack kuohu)  = "[" ++ formatKuohu kuohu ++ "]"
 formatKuohu (Brace kuohu)  = "{" ++ formatKuohu kuohu ++ "}"
 formatKuohu (Chevr kuohu)  = "<" ++ formatKuohu kuohu ++ ">"
 
-parseKuohu :: ByteStringLike s => s -> Maybe Kuohu
+parseKuohu :: ByteStringLike s => s -> Either [ErrorSpan] Kuohu
 parseKuohu = parse (kuohuParser <* eof)
 
 kuohuParser :: Parser Kuohu

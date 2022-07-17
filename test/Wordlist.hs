@@ -1,6 +1,7 @@
 import           MMZK.BSParser
 import qualified MMZK.BSParser.ASCII as PA
 import qualified MMZK.BSParser.Lexer as L
+import           Data.Either
 import           Test.HUnit
 
 main :: IO ()
@@ -20,34 +21,34 @@ main = runTestTTAndExit $ TestList [test1, test2, test3]
                      , testSingleValid3 jediList jedi ]
 
 testSingleValid1 :: [String] -> String -> Test
-testSingleValid1 exp str = TestCase 
+testSingleValid1 es str = TestCase 
                          $ assertEqual ("Test parsing " ++ show str ++ ":")
-                                       (Just exp) (parseWordlist1 str)
+                                       (Right es) (parseWordlist1 str)
 
 testSingleInvalid1 :: String -> Test
 testSingleInvalid1 str = TestCase
-                       $ assertEqual ("Test parsing " ++ show str ++ ":")
-                                     Nothing (parseWordlist1 str)
+                       $ assertBool ("Test parsing " ++ show str ++ ":")
+                                    (isLeft $ parseWordlist1 str)
 
 testSingleValid2 :: [String] -> String -> Test
-testSingleValid2 exp str = TestCase 
+testSingleValid2 es str = TestCase 
                          $ assertEqual ("Test parsing" ++ show str ++ ":")
-                                       (Just exp) (parseWordlist2 str)
+                                       (Right es) (parseWordlist2 str)
 
 testSingleInvalid2 :: String -> Test
 testSingleInvalid2 str = TestCase
-                       $ assertEqual ("Test parsing " ++ show str ++ ":")
-                                     Nothing (parseWordlist2 str)
+                       $ assertBool ("Test parsing " ++ show str ++ ":")
+                                    (isLeft $ parseWordlist2 str)
 
 testSingleValid3 :: [String] -> String -> Test
-testSingleValid3 exp str = TestCase 
+testSingleValid3 es str = TestCase 
                          $ assertEqual ("Test parsing" ++ show str ++ ":")
-                                       (Just exp) (parseWordlist3 str)
+                                       (Right es) (parseWordlist3 str)
 
 testSingleInvalid3 :: String -> Test
 testSingleInvalid3 str = TestCase
-                       $ assertEqual ("Test parsing " ++ show str ++ ":")
-                                     Nothing (parseWordlist3 str)
+                       $ assertBool ("Test parsing " ++ show str ++ ":")
+                                    (isLeft $ parseWordlist3 str)
 
 sith, sithE, jedi :: String
 sith  = "Darth,Sidious,Maul,Tyranus,Vader"
@@ -62,13 +63,13 @@ jediList = ["Obi-Wan", "Infil'a", "Yoda"]
 -- separated by ','s without any extra space. For example, "foo", "apple,bear",
 -- and "Darth,Sidious,Maul,Tyranus,Vader" are Wordlists, while "   spaces",
 -- "I-have-dashes", "spaces, after, comma" and "trailing,comma," are not.
-parseWordlist1 :: ByteStringLike s => s -> Maybe [String]
+parseWordlist1 :: ByteStringLike s => s -> Either [ErrorSpan] [String]
 parseWordlist1 = parse (wordlistParser1 <* eof)
   where
     wordlistParser1 = sepBy (PA.char ',') (some PA.alpha)
 
 -- | Parse a Wordlist, but allows extra spaces (' ') anywhere between the words.
-parseWordlist2 :: ByteStringLike s => s -> Maybe [String]
+parseWordlist2 :: ByteStringLike s => s -> Either [ErrorSpan] [String]
 parseWordlist2 = parse (wordlistParser2 <* eof)
   where
     wordlistParser2 = do
@@ -77,7 +78,7 @@ parseWordlist2 = parse (wordlistParser2 <* eof)
       sepBy (lexer $ PA.char ',') (lexer $ some PA.alpha)
 
 -- | Parse a Wordlist, but allows the words to contain "'" and "-".
-parseWordlist3 :: ByteStringLike s => s -> Maybe [String]
+parseWordlist3 :: ByteStringLike s => s -> Either [ErrorSpan] [String]
 parseWordlist3 = parse (wordlistParser3 <* eof)
   where
     wordlistParser3 = do
