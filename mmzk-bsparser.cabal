@@ -30,6 +30,7 @@ library
     exposed-modules:
         MMZK.BSParser,
         MMZK.BSParser.ASCII,
+        MMZK.BSParser.Error,
         MMZK.BSParser.Lexer,
         MMZK.BSParser.Word8
 
@@ -46,7 +47,8 @@ library
         bytestring ^>=0.11.3.1,
         utf8-string ^>=1.0.2,
         text ^>=2.0,
-        transformers ^>=0.5.6.2
+        transformers ^>=0.5.6.2,
+        containers ^>=0.6.5.1
 
     if flag(release)
         ghc-options: -O3 -Wall
