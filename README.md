@@ -1,5 +1,5 @@
 # mmzk-bsparser
-`mmzk-bsparser` is a Monadic parser combinator library aiming for paring plain texts (encoded in UTF-8), binary stream, or a mixture of both. It uses `ByteString` as the underlining input stream, thus enabling fast random-access/backtracking as well as easy switch between plain texts and binary streams. By default, it can parse `String`, strict `Text`, and `[Word8]` by converting them to and from `ByteString`.
+`mmzk-bsparser` is a Monadic parser combinator library aiming for paring plain texts (encoded in UTF-8), binary stream, or a mixture of both. It uses `ByteString` as the underlining input stream, thus enabling fast random-access/backtracking as well as easy switch between plain texts and binary streams. By default, it can also parse `String`, strict `Text`, and `[Word8]` by converting them to and from `ByteString`.
 
 The library is currently in its first stage of development, thus most of the functionality and documentation are not available yet.
 

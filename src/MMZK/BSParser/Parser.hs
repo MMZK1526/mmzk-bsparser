@@ -236,6 +236,7 @@ neg p = ParserT $ \ps -> do
 -- | A "ParserT" that fails instantly.
 empty :: Monad m => ParserT m a
 empty = A.empty
+{-# INLINE empty #-}
 
 -- | Try the first "ParserT". If it fails, use the second one. When both fails,
 -- if the errors occur at the same place, merge the errors; otherwise choose the
@@ -243,6 +244,7 @@ empty = A.empty
 (<|>) :: Monad m => ParserT m a -> ParserT m a -> ParserT m a
 (<|>) = (A.<|>)
 infixl 3 <|>
+{-# INLINE (<|>) #-}
 
 -- | Attempt all "ParserT"s in the list without consuming the input, if it
 -- succeeds, use the "ParserT" from the first argument. This operator acts as
@@ -250,26 +252,32 @@ infixl 3 <|>
 (<&>) :: Monad m => ParserT m a -> [ParserT m b] -> ParserT m a
 p <&> pcs = mapM_ lookAhead pcs >> p
 infixl 2 <&>
+{-# INLINE (<&>) #-}
 
 -- | Try all "ParserT"s until one of them parses successfully.
 choice :: Monad m => [ParserT m a] -> ParserT m a
 choice = msum
+{-# INLINE choice #-}
 
 -- | Parse for left paren, content, and right paren, returning only the content.
 parens :: Monad m => ParserT m o -> ParserT m c -> ParserT m a -> ParserT m a
 parens po pc pa = po >> pa <* pc
+{-# INLINE parens #-}
 
 -- | Use the "ParserT" zero, one, or more times.
 many :: Monad m => ParserT m a -> ParserT m [a]
 many = A.many
+{-# INLINE many #-}
 
 -- | Use the "ParserT" one or more times.
 some :: Monad m => ParserT m a -> ParserT m [a]
 some = A.some
+{-# INLINE some #-}
 
 -- | Parse zero or one occurrence of the content.
 optional :: Monad m => ParserT m a -> ParserT m (Maybe a)
 optional = A.optional
+{-# INLINE optional #-}
 
 -- | Parse the content between m (inclusive) and n (exclusive) times. If n <= m,
 -- returns an empty list.
@@ -289,23 +297,27 @@ range m n p = go m
 -- | Parse a list of contents separated by a separator.
 sepBy :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
 sepBy ps pa = sepBy1 ps pa <|> pure []
+{-# INLINE sepBy #-}
 
 -- | Parse a list of contents separated by a separator where the latter can
 -- optionally appear at the end.
 sepEndBy :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
 sepEndBy ps pa = sepBy ps pa <* optional ps
+{-# INLINE sepEndBy #-}
 
 -- | Parse a non-empty list of contents separated by a separator.
 sepBy1 :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
 sepBy1 ps pa = liftM2 (:) pa (many (ps >> pa))
+{-# INLINE sepBy1 #-}
 
 -- | Parse a non-empty list of contents separated by a separator where the
 -- latter can optionally appear at the end.
 sepEndBy1 :: Monad m => ParserT m s -> ParserT m a -> ParserT m [a]
 sepEndBy1 ps pa = sepBy1 ps pa <* optional ps
+{-# INLINE sepEndBy1 #-}
 
 -- | Use the "ParserT" and map the result by the given function. Fails if it
 -- returns Nothing.
 pmap :: Monad m => (b -> Maybe a) -> ParserT m b -> ParserT m a
 pmap f p = p >>= maybe empty pure . f
-{-# INLINE pmap  #-}
+{-# INLINE pmap #-}

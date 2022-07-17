@@ -27,17 +27,19 @@ byteString str
   = tokens (BS.length bs) (\bs' -> if bs == bs' then Just bs else Nothing)
   where
     bs = toByteString str
+{-# INLINE byteString #-}
 
 -- | Parse the given "ByteStringLike", including "String". The result is a
 -- "String".
 string :: Monad m => ByteStringLike s => s -> ParserT m String
 string = fmap fromByteString . byteString
+{-# INLINE string #-}
 
 -- | Parse the given "ByteStringLike", including "String". The result is a
 -- "Text".
 text :: Monad m => ByteStringLike s => s -> ParserT m Text
 text = fmap fromByteString . byteString
-
+{-# INLINE text #-}
 
 --------------------------------------------------------------------------------
 -- Char
@@ -46,22 +48,27 @@ text = fmap fromByteString . byteString
 -- | Parse the given "Char".
 char :: Monad m => Char -> ParserT m Char
 char ch = charToken $ \x -> if x == ch then Just x else Nothing
+{-# INLINE char #-}
 
 -- | Parse one "Char" using the predicate.
 satisfy :: Monad m => (Char -> Bool) -> ParserT m Char
 satisfy f = charToken $ \x -> if f x then Just x else Nothing
+{-# INLINE satisfy #-}
 
 -- | Parse any "Char".
 anyChar :: Monad m => ParserT m Char
 anyChar = charToken Just
+{-# INLINE anyChar #-}
 
 -- | Parse one of the given "Char"s.
 oneOf :: Monad m => Foldable t => t Char -> ParserT m Char
 oneOf chs = satisfy (`elem` chs)
+{-# INLINE oneOf #-}
 
 -- | Parse any Char except those in the list.
 noneOf :: Monad m => Foldable t => t Char -> ParserT m Char
 noneOf chs = satisfy (`notElem` chs)
+{-# INLINE noneOf #-}
 
 -- | Parse the SPACE character (空格), namely 32.
 space32 :: Monad m => ParserT m Char
