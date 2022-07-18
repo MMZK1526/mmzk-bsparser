@@ -68,8 +68,8 @@ formatKuohu (Brack kuohu)  = "[" ++ formatKuohu kuohu ++ "]"
 formatKuohu (Brace kuohu)  = "{" ++ formatKuohu kuohu ++ "}"
 formatKuohu (Chevr kuohu)  = "<" ++ formatKuohu kuohu ++ ">"
 
-parseKuohu :: ByteStringLike s => s -> Either [ErrorSpan String] Kuohu
-parseKuohu = parse (kuohuParser <* eof)
+parseKuohu :: ByteStringLike s => s -> Either [ErrSpan String] Kuohu
+parseKuohu = parse (kuohuParser <* PA.eof)
 
 kuohuParser :: Parser Kuohu
 kuohuParser = do

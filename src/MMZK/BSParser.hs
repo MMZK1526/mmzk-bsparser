@@ -1,8 +1,9 @@
 module MMZK.BSParser 
   ( BSParserT, BSParser, ByteStringLike(..), fromChar, toChar, parseT, parse
-  , inspect, token, tokens, eof, neg, lookAhead, empty, (<|>), choice, many
+  , getState, token, tokens, lookAhead, empty, (<|>), choice, many
   , some, parens, setAllowBadCP, flush, (<&>), charToken, lexer, setSpaceParser
-  , range, sepBy, sepBy1, sepEndBy, sepEndBy1, ParseState(..), ErrorSpan ) where
+  , range, sepBy, sepBy1, sepEndBy, sepEndBy1, ParseState(..), ErrSpan
+  , inspect, withLen ) where
 
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Error

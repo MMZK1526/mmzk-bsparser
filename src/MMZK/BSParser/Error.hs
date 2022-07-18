@@ -68,6 +68,8 @@ data PError e = BasicErr { unexpected  :: UItem
               | BadUTF8
   deriving (Eq, Ord, Show)
 
+
+
 instance PP e => PP (PError e) where
   pp err@BasicErr {} = T.concat [go1, go2, go3]
     where
@@ -84,16 +86,29 @@ instance PP e => PP (PError e) where
   pp _               = "Invalid UTF-8 codepoint.\n"
 
 -- ｜ A "PError" together with the location information.
-data ErrorSpan e = ErrorSpan { esLocation :: Int -- ^ Position of the start
-                             , esLength   :: Int -- ^ Length of the error
-                             , esError    :: PError e }
+data ErrSpan e = ErrSpan { esLocation :: Int -- ^ Position of the start
+                         , esLength   :: Int -- ^ Length of the error
+                         , esError    :: PError e }
   deriving (Show)
 
-instance Eq (ErrorSpan e) where
+instance Eq (ErrSpan e) where
   es1 == es2 = (esLocation es1, esLength es1) == (esLocation es2, esLength es2)
 
-instance Ord (ErrorSpan e) where
+instance Ord (ErrSpan e) where
   es1 <= es2 = (esLocation es1, esLength es1) <= (esLocation es2, esLength es2)
+
+instance Semigroup (ErrSpan e) where
+  errF <> errG = case compare errF errG of
+    LT -> errG
+    GT -> errF
+    EQ -> ErrSpan (esLocation errF) (esLength errF) 
+        $ case (esError errF, esError errG) of
+            (BasicErr u es msgs, BasicErr _ es' msgs')
+              -> BasicErr u
+                          (M.unionWith S.union es es')
+                          (msgs ++ msgs')
+            (BasicErr {}, _) -> esError errF
+            _                -> esError errG
 
 -- | The empty "PError".
 nil :: PError e

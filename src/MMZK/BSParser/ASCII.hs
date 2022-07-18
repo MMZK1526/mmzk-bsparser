@@ -1,4 +1,5 @@
--- Utility parsers for single 8-bit ASCII and Latin-1 "Char"s.
+-- Utility parsers for single 8-bit ASCII and Latin-1 "Char"s. Not recommended
+-- unless the input stream is fully comprised of ASCII or Latin-1 encoding.
 
 module MMZK.BSParser.ASCII where
 
@@ -17,6 +18,17 @@ import qualified MMZK.BSParser.Word8 as P8
 char :: Monad m => Char -> BSParserT e m Char
 char = satisfyL1 . (==)
 {-# INLINE char #-}
+
+-- | Succeed iff the "BSParserT" fails. Will not consume any input or modify any
+-- state.
+neg :: Monad m => BSParserT e m a -> BSParserT e m ()
+neg = P8.neg
+{-# INLINE neg #-}
+
+-- | Parse the end-of-input.
+eof :: Monad m => BSParserT e m ()
+eof = P8.eof
+{-# INLINE eof #-}
 
 -- | Parse one of the given ASCII or Latin-1 "Char".
 -- Use it with care if the list of tokens contains non-Latin-1 codepoints since

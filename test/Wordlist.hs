@@ -66,26 +66,29 @@ jediList = ["Obi-Wan", "Infil'a", "Yoda"]
 -- separated by ','s without any extra space. For example, "foo", "apple,bear",
 -- and "Darth,Sidious,Maul,Tyranus,Vader" are Wordlists, while "   spaces",
 -- "I-have-dashes", "spaces, after, comma" and "trailing,comma," are not.
-parseWordlist1 :: ByteStringLike s => s -> Either [ErrorSpan String] [String]
-parseWordlist1 = parse (wordlistParser1 <* eof)
-  where
-    wordlistParser1 = sepBy (PA.char ',') (some PA.alpha)
+parseWordlist1 :: ByteStringLike s => s -> Either [ErrSpan String] [String]
+parseWordlist1 = parse (wordlistParser1 <* L.eof)
+
+wordlistParser1 :: Parser [String]
+wordlistParser1 = sepBy (PA.char ',') (some PA.alpha)
 
 -- | Parse a Wordlist, but allows extra spaces (' ') anywhere between the words.
-parseWordlist2 :: ByteStringLike s => s -> Either [ErrorSpan String] [String]
-parseWordlist2 = parse (wordlistParser2 <* eof)
-  where
-    wordlistParser2 = do
-      setSpaceParser (many PA.space32)
-      lexer $ pure () -- Parse leading spaces
-      sepBy (lexer $ PA.char ',') (lexer $ some PA.alpha)
+parseWordlist2 :: ByteStringLike s => s -> Either [ErrSpan String] [String]
+parseWordlist2 = parse (wordlistParser2 <* L.eof)
+
+wordlistParser2 :: Parser [String]
+wordlistParser2 = do
+  setSpaceParser (many PA.space32)
+  lexer $ pure () -- Parse leading spaces
+  sepBy (lexer $ PA.char ',') (lexer $ some PA.alpha)
 
 -- | Parse a Wordlist, but allows the words to contain "'" and "-".
-parseWordlist3 :: ByteStringLike s => s -> Either [ErrorSpan String] [String]
-parseWordlist3 = parse (wordlistParser3 <* eof)
-  where
-    wordlistParser3 = do
-      setSpaceParser (many PA.space32)
-      lexer $ pure () -- Parse leading spaces
-      sepBy (lexer $ PA.char ',') 
-           (lexer $ some (choice [PA.alpha, PA.char '-', PA.char '\'']))
+parseWordlist3 :: ByteStringLike s => s -> Either [ErrSpan String] [String]
+parseWordlist3 = parse (wordlistParser3 <* L.eof)
+
+wordlistParser3 :: Parser [String]
+wordlistParser3 = do
+  setSpaceParser (many PA.space32)
+  lexer $ pure () -- Parse leading spaces
+  sepBy (lexer $ PA.char ',') 
+        (lexer $ some (choice [PA.alpha, PA.char '-', PA.char '\'']))

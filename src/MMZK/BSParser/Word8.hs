@@ -1,8 +1,13 @@
--- Utility parsers for single "Word8" ASCII and Latin-1 tokens.
+-- Utility parsers for single "Word8" ASCII and Latin-1 tokens. Not recommended
+-- unless the input stream is fully comprised of ASCII or Latin-1 encoding.
 
 module MMZK.BSParser.Word8 where
 
+import qualified Data.Map as M
+import qualified Data.Set as S
 import           Data.Word
+import           MMZK.BSParser.Convert
+import           MMZK.BSParser.Error
 import           MMZK.BSParser.Parser
 
 
@@ -16,6 +21,33 @@ import           MMZK.BSParser.Parser
 char :: Monad m => Word8 -> BSParserT e m Word8
 char = satisfyL1 . (==)
 {-# INLINE char #-}
+
+-- | Succeed iff the "BSParserT" fails. Will not consume any input or modify any
+-- state.
+neg :: Monad m => BSParserT e m a -> BSParserT e m ()
+neg p = do
+  mR <- optional $ lookAhead p
+  case mR of
+    Nothing -> pure ()
+    Just _  -> do
+      ps      <- getState
+      (i, ch) <- lookAhead $ withLen latin1
+      throw . ErrSpan (parseIndex ps) i
+            $ BasicErr (UItem Nothing (Just . CToken $ toChar ch)) M.empty []
+{-# INLINE neg #-}
+
+-- | Parse the end-of-input.
+eof :: Monad m => BSParserT e m ()
+eof = do
+  mR <- optional . lookAhead $ withLen latin1
+  case mR of
+    Nothing      -> pure ()
+    Just (i, ch) -> do
+      ps <- getState
+      throw . ErrSpan (parseIndex ps) i
+            $ BasicErr (UItem Nothing (Just . CToken $ toChar ch))
+                       (M.singleton Nothing (S.singleton EOI)) []
+{-# INLINE eof #-}
 
 -- | Parse one of the given tokens ("Word8"). The result is retained as a
 -- "Word8".

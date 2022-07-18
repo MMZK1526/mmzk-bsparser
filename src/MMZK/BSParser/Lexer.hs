@@ -5,14 +5,17 @@ module MMZK.BSParser.Lexer where
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.Char
+import qualified Data.Map as M
+import qualified Data.Set as S
 import           Data.Text (Text)
 import           MMZK.BSParser.Convert
+import           MMZK.BSParser.Error
 import           MMZK.BSParser.Parser
 
--- | Use the "BSParserT", then consume the spaces that follows. Spaces are defined
--- by "spaceParser" of "ParseState", which is by default @pure ()@.
+-- | Use the "BSParserT", then consume the spaces that follows. Spaces are
+-- defined by "spaceParser" of "ParseState", which is by default @pure ()@.
 lexer :: Monad m => BSParserT e m a -> BSParserT e m a
-lexer = (<* (inspect >>= spaceParser))
+lexer = (<* (getState >>= spaceParser))
 {-# INLINE lexer #-}
 
 
@@ -23,7 +26,7 @@ lexer = (<* (inspect >>= spaceParser))
 -- | Parse the given "ByteStringLike", including "String". The result is a
 -- "ByteString".
 byteString :: Monad m => ByteStringLike s => s -> BSParserT e m ByteString
-byteString str 
+byteString str
   = tokens (BS.length bs) (\bs' -> if bs == bs' then Just bs else Nothing)
   where
     bs = toByteString str
@@ -40,6 +43,7 @@ string = fmap fromByteString . byteString
 text :: Monad m => ByteStringLike s => s -> BSParserT e m Text
 text = fmap fromByteString . byteString
 {-# INLINE text #-}
+
 
 --------------------------------------------------------------------------------
 -- Char
@@ -59,6 +63,37 @@ satisfy f = charToken $ \x -> if f x then Just x else Nothing
 anyChar :: Monad m => BSParserT e m Char
 anyChar = charToken Just
 {-# INLINE anyChar #-}
+
+-- | Succeed iff the "BSParserT" fails. Will not consume any input or modify any
+-- state.
+neg :: Monad m => BSParserT e m a -> BSParserT e m ()
+neg p = do
+  snapshot <- inspect $ lookAhead p
+  case snapshot of
+    Left err -> case esError err of
+      BadUTF8 -> throw err
+      _       -> pure ()
+    Right _  -> do
+      ps      <- getState
+      (i, ch) <- lookAhead $ withLen anyChar
+      throw . ErrSpan (parseIndex ps) i
+            $ BasicErr (UItem Nothing (Just $ CToken ch)) M.empty []
+{-# INLINE neg #-}
+
+-- | Parse the end-of-input.
+eof :: Monad m => BSParserT e m ()
+eof = do
+  snapshot <- inspect . lookAhead $ withLen anyChar
+  case snapshot of
+    Left err      -> case esError err of
+      BadUTF8 -> throw err
+      _       -> pure ()
+    Right (i, ch) -> do
+      ps <- getState
+      throw . ErrSpan (parseIndex ps) i
+            $ BasicErr (UItem Nothing (Just $ CToken ch))
+                       (M.singleton Nothing (S.singleton EOI)) []
+{-# INLINE eof #-}
 
 -- | Parse one of the given "Char"s.
 oneOf :: Monad m => Foldable t => t Char -> BSParserT e m Char
@@ -120,13 +155,13 @@ alphaNum :: Monad m => BSParserT e m Char
 alphaNum = satisfy isAlphaNum
 {-# INLINE alphaNum #-}
 
--- | Parse a single lowercase alphabetic Unicode characters, following their 
+-- | Parse a single lowercase alphabetic Unicode characters, following their
 -- General Categories.
 lower :: Monad m => BSParserT e m Char
 lower = satisfy isLower
 {-# INLINE lower #-}
 
--- | Parse a single uppercase alphabetic Unicode characters, following their 
+-- | Parse a single uppercase alphabetic Unicode characters, following their
 -- General Categories.
 upper :: Monad m => BSParserT e m Char
 upper = satisfy isUpper
