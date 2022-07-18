@@ -11,7 +11,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BSU
 import           Data.Functor.Identity
 import qualified Data.Map as M
-import qualified Data.Set as S
 import           Data.Word
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Error
@@ -174,9 +173,8 @@ token f = BSParserT $ \ps -> return $ case headPS ps of
     Just a  -> (Right a, incPS ps)
   where
     eoiErr          = BasicErr (UItem Nothing (Just EOI)) M.empty []
-    mismatchErr ch' = BasicErr (UItem Nothing (Just EOI))
-                               (M.singleton Nothing . S.singleton . CToken
-                                                    $ toChar ch') []
+    mismatchErr ch' = BasicErr (UItem Nothing (Just . CToken $ toChar ch'))
+                               M.empty []
 
 -- | Parse the first n tokens ("ByteString") using the predicate function. If
 -- the predicate returns "Nothing", fail the "BSParserT".
@@ -189,9 +187,9 @@ tokens n f = BSParserT $ \ps -> do
     Nothing -> (Left $ ErrSpan (parseIndex ps) len (mismatchErr bs), ps)
     Just as -> (Right as, addPS n ps)
   where
-    mismatchErr bs' = BasicErr (UItem Nothing (Just EOI))
-                               (M.singleton Nothing . S.singleton . SToken
-                                                    $ fromByteString bs') []
+    mismatchErr bs' = BasicErr ( UItem Nothing 
+                                       (Just . SToken $ fromByteString bs') )
+                               M.empty []
 
 -- | Parse one "Char" codepoint using the predicate function. If the predicate
 -- returns "Nothing", fail the "BSParserT". If the codepoint is invalid, the
@@ -211,9 +209,8 @@ charToken f = BSParserT $ \ps -> pure
       _        -> runPredicate
   where
     eoiErr          = BasicErr (UItem Nothing (Just EOI)) M.empty []
-    mismatchErr ch' = BasicErr (UItem Nothing (Just EOI))
-                               (M.singleton Nothing . S.singleton . CToken
-                                                    $ ch') []
+    mismatchErr ch' = BasicErr (UItem Nothing (Just $ CToken ch'))
+                               M.empty []
 
 -- | Behave the same as "BSParserT" except it does not consume any input or
 -- modify any state.

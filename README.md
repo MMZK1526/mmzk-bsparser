@@ -30,12 +30,10 @@ In this section, we will install the library to a new `cabal` workspace.
     ```
 4. Now we can import the library. For example, in "app/Main.hs", we can write:
     ```Haskell
-    module Main where
-
     main :: IO ()
     main = case parse L.eof "" of
-    Right a  -> print a
-    Left err -> putStrLn "has error"
+        Right a  -> print a
+        Left err -> putStrLn "has error"
     ```
 5. Run `cabal run`, the library and the `Main` module would be built and the result should be `()`, showing that the `eof` parser (which is equivalent to parsing an empty string when used alone) is successful. If we change the string to a non-empty one and run `cabal run` again, it should print a `"has error"`.
 

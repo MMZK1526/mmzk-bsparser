@@ -1,21 +1,34 @@
 -- Error types as well as the default pretty-print function for errors.
 
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module MMZK.BSParser.Error where
 
+import           Data.Bifunctor
 import           Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
-import           Data.Text (Text, pack)
+import           Data.Text (Text, pack, unpack)
 import qualified Data.Text as T
+import           Data.Void
 
 -- | A class similar to "Show", but returns a "Text". It is used to provide an
 -- alternative "pretty-print".
 class PP a where
   pp :: a -> Text
+
+instance PP String where
+  pp = pack
+
+instance PP Text where
+  pp = id
+
+instance PP Void where
+  pp = absurd
 
 -- | A "Char" token, "String" token, or end-of-input.
 data Token = CToken Char | SToken String | EOI
@@ -74,15 +87,15 @@ instance PP e => PP (PError e) where
     where
       go1 = case pp $ unexpected err of
         ""  -> ""
-        str -> "Unexpected " <> str <> ".\n"
+        str -> "  Unexpected " <> str <> "."
       go2 = case filter (not . T.null) . fmap (pp . uncurry EItem)
                                        $ M.toList (expecting err) of
         []   -> ""
-        strs -> "Expecting " <> T.intercalate "; " strs <> ".\n"
+        strs -> "\n  Expecting " <> T.intercalate "; " strs <> "."
       go3 = case errMessages err of
         []   -> ""
-        strs -> T.intercalate "\n" (pp <$> strs) <> "\n"
-  pp _               = "Invalid UTF-8 codepoint.\n"
+        strs -> "\n  " <> T.intercalate "  \n" (pp <$> strs)
+  pp _               = "  Invalid UTF-8 codepoint."
 
 -- ｜ A "PError" together with the location information.
 data ErrSpan e = ErrSpan { esLocation :: Int -- ^ Position of the start
@@ -112,8 +125,54 @@ instance Semigroup (ErrSpan e) where
 -- | The error bundle that contains "ErrSpan"s as well as the original input.
 data ErrBundle e = ErrBundle { ebErrors   :: [ErrSpan e]
                              , ebStr      :: ByteString
-                             , ebTadWidth :: Int }
-  deriving (Eq, Show) 
+                             , ebTabWidth :: Int }
+  deriving (Eq, Show)
+
+-- | Pretty-print the errors in the "ErrBundle" as a "Text".
+renderErrBundle :: PP e => ErrBundle e -> Text
+renderErrBundle eb = T.concat $ showError <$> errRowCols
+  where
+    str           = ebStr eb
+    showError erc = T.concat [showSpan $ snd erc, "", pp $ fst erc]
+    errRowCols    = go (0, (1 :: Int, 1)) (ebErrors eb)
+    go entry es   = case es of
+      []      -> []
+      e : es' -> let entry'  = slide entry (esLocation e)
+                     entry'' = slide entry' (esLocation e + esLength e)
+                 in  (esError e, (snd entry', snd entry'')) : go entry'' es'
+    slide entry i
+      | i == BS.length str = second (second succ) (slide entry (i - 1))
+      | fst entry < i      = goF entry i
+      | fst entry > i      = goB entry i
+      | otherwise          = entry
+    goF (i, (r, c)) i'
+      | i < i'    = case str `BS.index` i of
+        7  -> goF (i + 1, (r, c + ebTabWidth eb)) i'
+        10 -> goF (i + 1, (r, c)) i'
+        13 -> goF (i + 1, (r, c)) i'
+        _  -> goF (i + 1, (r, c + 1)) i'
+      | otherwise = (i, (r, c))
+    goB (i, (r, c)) i'
+      | i > i'    = case str `BS.index` i of
+        7  -> goF (i - 1, (r, c - ebTabWidth eb)) i'
+        10 -> goF (i - 1, (r - 1, c)) i'
+        13 -> goF (i - 1, (r, c)) i'
+        _  -> goF (i - 1, (r, c - 1)) i'
+      | otherwise = (i, (r, c))
+    showSpan ((r, c), (r', c'))
+      | r == r' && c == c' = T.concat [ "Syntax error at row ", pack $ show r
+                                      , " col ", pack $ show c, ":\n"]
+      | r == r'            = T.concat [ "Syntax error at row ", pack $ show r
+                                      , " col ", pack $ show c, " - "
+                                      , pack $ show c', ":\n"]
+      | otherwise          = T.concat [ "Syntax error between row "
+                                      , pack $ show r , " col ", pack $ show c
+                                      , " and row ", pack $ show r', " col "
+                                      , pack $ show c', ":\n"]
+
+-- | Pretty-print the errors in the "ErrBundle" as a "String".
+renderErrBundleAsStr :: PP e => ErrBundle e -> String
+renderErrBundleAsStr = unpack . renderErrBundle
 
 -- | The empty "PError".
 nil :: PError e
