@@ -3,6 +3,7 @@
 
 module MMZK.BSParser.Word8 where
 
+import           Data.Foldable
 import qualified Data.Map as M
 import qualified Data.Set as S
 import           Data.Word
@@ -19,7 +20,8 @@ import           MMZK.BSParser.Parser
 -- Use it with care if the list of tokens contains non-Latin-1 codepoints since
 -- it may extract a fragment of a codepoint.
 char :: Monad m => Word8 -> BSParserT e m Word8
-char = satisfyL1 . (==)
+char ch = satisfyL1 (== ch) <??> M.singleton Nothing
+                                            (S.singleton . CToken $ toChar ch)
 {-# INLINE char #-}
 
 -- | Succeed iff the "BSParserT" fails. Will not consume any input or modify any
@@ -33,7 +35,8 @@ neg p = do
       ps      <- getState
       (i, ch) <- lookAhead $ withLen latin1
       throw . ErrSpan (parseIndex ps) i
-            $ BasicErr (UItem Nothing (Just . CToken $ toChar ch)) M.empty []
+            $ BasicErr (Just $ UItem Nothing (Just . CToken $ toChar ch))
+                       Nothing Nothing
 {-# INLINE neg #-}
 
 -- | Parse the end-of-input.
@@ -45,8 +48,8 @@ eof = do
     Just (i, ch) -> do
       ps <- getState
       throw . ErrSpan (parseIndex ps) i
-            $ BasicErr (UItem Nothing (Just . CToken $ toChar ch))
-                       (M.singleton Nothing (S.singleton EOI)) []
+            $ BasicErr (Just $ UItem Nothing (Just . CToken $ toChar ch))
+                       (Just $ M.singleton Nothing (S.singleton EOI)) Nothing
 {-# INLINE eof #-}
 
 -- | Parse one of the given tokens ("Word8"). The result is retained as a
@@ -54,25 +57,26 @@ eof = do
 -- Use it with care if the list of tokens contains non-Latin-1 codepoints since
 -- it may extract a fragment of a codepoint.
 oneOf :: Monad m => Foldable t => t Word8 -> BSParserT e m Word8
-oneOf chs = satisfyL1 (`elem` chs)
+oneOf chs = satisfyL1 (`elem` chs) 
+       <??> M.singleton Nothing (S.fromList $ CToken . toChar <$> toList chs)
 {-# INLINE oneOf #-}
 
 -- | Parse a token ("Word8") representing the SPACE character (空格), namely 32.
 -- The result is retained as a "Word8".
 space32 :: Monad m => BSParserT e m Word8
-space32 = satisfyL1 (== 32)
+space32 = satisfyL1 (== 32) <??> M.singleton Nothing (S.singleton $ CToken ' ')
 {-# INLINE space32 #-}
 
 -- | Parse a token ("Word8") representing a space character (空白字符), namely
 -- \t, \n, \r, \f, \v, or  32. The result is retained as a "Word8".
 space :: Monad m => BSParserT e m Word8
-space = satisfyL1 (\ch -> ch == 32 || (ch >= 9 && ch <= 13))
+space = satisfyL1 (\ch -> ch == 32 || (ch >= 9 && ch <= 13)) <?> "space"
 {-# INLINE space #-}
 
 -- | Parse a single digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, or 9. The result is
 -- retained as a "Word8".
 digit :: Monad m => BSParserT e m Word8
-digit = satisfyL1 (\ch -> ch >= 48 && ch <= 57)
+digit = satisfyL1 (\ch -> ch >= 48 && ch <= 57) <?> "digit"
 {-# INLINE digit #-}
 
 -- | Parse a single hexadecimal digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; a, b, c, d,
@@ -80,18 +84,19 @@ digit = satisfyL1 (\ch -> ch >= 48 && ch <= 57)
 hexDigit :: Monad m => BSParserT e m Word8
 hexDigit = satisfyL1 ( \ch -> (ch >= 48 && ch <= 57)
                            || (ch >= 65 && ch <= 70)
-                           || (ch >= 97 && ch <= 102) )
+                           || (ch >= 97 && ch <= 102) ) <?> "hex digit"
 {-# INLINE hexDigit #-}
 
 -- | Parse a single octacal digit: 0, 1, 2, 3, 4, 5, 6, or 7. The result is
 -- retained as a "Word8".
 octDigit :: Monad m => BSParserT e m Word8
-octDigit = satisfyL1 (\ch -> ch >= 48 && ch <= 55)
+octDigit = satisfyL1 (\ch -> ch >= 48 && ch <= 55) <?> "oct digit"
 {-# INLINE octDigit #-}
 
 -- | Parse a single binary digit: 0 or 1. The result is retained as a "Word8".
 binDigit :: Monad m => BSParserT e m Word8
 binDigit = satisfyL1 (\ch -> ch == 48 || ch == 49)
+      <??> M.singleton Nothing (S.fromList $ CToken <$> "01")
 {-# INLINE binDigit #-}
 
 

@@ -26,10 +26,12 @@ lexer = (<* (getState >>= spaceParser))
 -- | Parse the given "ByteStringLike", including "String". The result is a
 -- "ByteString".
 byteString :: Monad m => ByteStringLike s => s -> BSParserT e m ByteString
-byteString str
-  = tokens (BS.length bs) (\bs' -> if bs == bs' then Just bs else Nothing)
+byteString str = tokens (BS.length bs) 
+                        (\bs' -> if bs == bs' then Just bs else Nothing)
+            <??> M.singleton Nothing (S.singleton $ SToken $ convert str)
   where
-    bs = toByteString str
+    convert = fromByteString . toByteString
+    bs      = toByteString str
 {-# INLINE byteString #-}
 
 -- | Parse the given "ByteStringLike", including "String". The result is a
@@ -77,7 +79,7 @@ neg p = do
       ps      <- getState
       (i, ch) <- lookAhead $ withLen anyChar
       throw . ErrSpan (parseIndex ps) i
-            $ BasicErr (UItem Nothing (Just $ CToken ch)) M.empty []
+            $ BasicErr (Just (UItem Nothing (Just $ CToken ch))) Nothing Nothing
 {-# INLINE neg #-}
 
 -- | Parse the end-of-input.
@@ -91,8 +93,8 @@ eof = do
     Right (i, ch) -> do
       ps <- getState
       throw . ErrSpan (parseIndex ps) i
-            $ BasicErr (UItem Nothing (Just $ CToken ch))
-                       (M.singleton Nothing (S.singleton EOI)) []
+            $ BasicErr (Just $ UItem Nothing (Just $ CToken ch))
+                       (Just $ M.singleton Nothing (S.singleton EOI)) Nothing
 {-# INLINE eof #-}
 
 -- | Parse one of the given "Char"s.
