@@ -21,7 +21,8 @@ data ParseState e m = ParseState { parseStr    :: ByteString
                                  , bitOffset   :: Int
                                  , allowBadCP  :: Bool
                                  , spaceParser :: BSParserT e m ()
-                                 , errorStack  :: [ErrSpan e] }
+                                 , errorStack  :: [ErrSpan e]
+                                 , tabWidth    :: Int }
 
 instance Eq (ParseState e m) where
   a == b = parseIndex a == parseIndex b && bitOffset a == bitOffset b
@@ -45,12 +46,6 @@ headPS ps = BS.indexMaybe (parseStr ps) (parseIndex ps)
 firstNPS :: Int -> ParseState e m -> ByteString
 firstNPS n ps = BS.take n $ BS.drop (parseIndex ps) (parseStr ps)
 {-# INLINE firstNPS #-}
-
-addErr :: Int -> Int -> PError e -> ParseState e m -> ParseState e m
-addErr loc len err ps = ps { errorStack = errSpan : errorStack ps }
-  where
-    errSpan = ErrSpan loc len err
-{-# INLINE addErr #-}
 
 newtype BSParserT e m a
   = BSParserT { runParserT :: ParseState e m
@@ -84,8 +79,8 @@ instance Monad m => A.Alternative (BSParserT e m) where
           Left errG -> pure . (Left $ errF <> errG ,) $ if errF > errG
             then psF
             else psG
-          success -> pure (success, psG { errorStack = errorStack ps })
-      success -> pure (success, psF { errorStack = errorStack ps })
+          success -> pure (success, psG)
+      success -> pure (success, psF)
 
 instance Monad m => MonadPlus (BSParserT e m)
 
@@ -101,22 +96,26 @@ instance MonadTrans (BSParserT e) where
 --------------------------------------------------------------------------------
 
 parseT :: Monad m => ByteStringLike s
-       => BSParserT e m a -> s -> m (Either [ErrSpan e] a)
+       => BSParserT e m a -> s -> m (Either (ErrBundle e) a)
 parseT parser str = do
   (result, ps) <- runParserT parser initState
-  case result of
-    Right a -> pure $ Right a
-    Left e  -> pure $ Left (reverse $ e : errorStack ps)
+  return $ case result of
+    Right a -> Right a
+    Left e  -> Left $ ErrBundle (reverse $ e : errorStack ps)
+                                (parseStr ps) (tabWidth ps)
   where
     initState = ParseState { parseIndex  = 0
                            , parseStr    = toByteString str
                            , allowBadCP  = False
                            , bitOffset   = 0
                            , spaceParser = pure ()
-                           , errorStack = [] }
+                           , errorStack  = []
+                           , tabWidth    = 4 }
+{-# INLINE parseT #-}
 
-parse :: ByteStringLike s => BSParser e a -> s -> Either [ErrSpan e] a
+parse :: ByteStringLike s => BSParser e a -> s -> Either (ErrBundle e) a
 parse = (runIdentity .) . parseT
+{-# INLINE parse #-}
 
 
 --------------------------------------------------------------------------------
@@ -216,10 +215,11 @@ charToken f = BSParserT $ \ps -> pure
                                (M.singleton Nothing . S.singleton . CToken
                                                     $ ch') []
 
--- | Behave the same as "BSParserT" except it does not consume any input or 
+-- | Behave the same as "BSParserT" except it does not consume any input or
 -- modify any state.
 lookAhead :: Monad m => BSParserT e m a -> BSParserT e m a
 lookAhead p = BSParserT $ \ps -> (, ps) . fst <$> runParserT p ps
+{-# INLINE lookAhead #-}
 
 
 --------------------------------------------------------------------------------
