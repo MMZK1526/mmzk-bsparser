@@ -170,6 +170,16 @@ prune :: Monad m => BSParserT e m ()
 prune = BSParserT $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps })
 {-# INLINE prune #-}
 
+-- | Use "prune" within the given "BSParserT". If the latter succeeds, restore
+-- the "pruneIndex".
+withPrune :: Monad m => BSParserT e m a -> BSParserT e m a
+withPrune p = BSParserT $ \ps -> do
+  (r, ps') <- runParserT p ps { pruneIndex = parseIndex ps }
+  return . (r ,) $ case r of
+    Left _  -> ps'
+    Right _ -> ps' { pruneIndex = pruneIndex ps }
+{-# INLINE withPrune #-}
+
 -- | Flush the remaining unprocessed bits in the current token ("Word8"). If the
 -- input "ByteString" contains both binary and UTF-8, call this function
 -- whenever switching from parsing binary to parsing UTF-8. Returns the number
