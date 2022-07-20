@@ -44,6 +44,8 @@ In this example, we will make a very simple parser that takes a "Wordlist" separ
 
 To follow this example, make sure that the ["playground" workspace](#installation) is ready.  
 
+### First Attempt
+
 In "app/Main.hs", replace the existing code with the following:
 
 ```Haskell
@@ -113,7 +115,7 @@ Syntax error at row 1 col 5:
   Expecting <end of input>.
 ```
 
-In the last example, the parser expects "end-of-input" because it treats "mmzk" as a word and expects nothing to follow. Apparently, this is not the best error message and can lead to confusion. Later we will discuss how to make the error more informative.
+In the last test, the parser expects "end-of-input" because it treats "mmzk" as a word and expects nothing to follow. Apparently, this is not the best error message and can lead to confusion. Later we will discuss how to make the error more informative.
 
 We are now in the position to build the Wordlist parser. A Wordlist is a bunch of words separated by commas, and luckily, we have a built-in combinator that captures the exact behaviour:
 
@@ -137,11 +139,14 @@ Syntax error at row 1 col 13:
   Expecting <end of input>.
 ```
 
-The last example shows how the parser will react when `wordParser` detects unexpected characters: the parser "backtracks" to the point where a valid Wordlist is detected. More specifically, in the case of "apple,banana,1", it is apparent that the problem is with '1' since it is not a word, but the parser recognises "apple,banana" as a valid Wordlist and leaves ",1" behind, only to be picked up by `L.eof`. Therefore, the error message always claims expecting "end of input".
+The last test shows how the parser will react when `wordParser` detects unexpected characters: the parser "backtracks" to the point where a valid Wordlist is detected. More specifically, in the case of "apple,banana,1", it is apparent that the problem is with '1' since it is not a word, but the parser recognises "apple,banana" as a valid Wordlist and leaves ",1" behind, only to be picked up by `L.eof`. Therefore, the error message always claims expecting "end of input".
 
 The reason behind such a phenomenon is that our parser eagerly backtracks by default, in contrast to most parser combinator libraries which do not backtrack at all unless specified otherwise. In our example, while such design allows us to pick up the longest prefix that abides the rules of Wordlist (which is useful in many cases), it often backtracks away from the spot where the actual error is detected.
 
-To prevent this and pin-point the error Ground Zero, we may use the function `prune`, which stops prevents the parser to backtrack before the current location. We may redefined `wordlistParser` as the following:
+
+### Pruning
+
+To prevent this and pin-point the error Ground Zero, we may use the function `prune`, which prevents the parser to backtrack before the current location. We may redefined `wordlistParser` as the following:
 
 ```Haskell
 wordlistParser :: Parser [String]
@@ -188,7 +193,74 @@ apple,banana,1
             backtrack position
 ```
 
-The function `prune` is invoked, marking the current location (the digit '1') as the limit of backstracking. It then attempts to parse it as a letter and fails. At this point, it would backtrack to the second comma, but it is before the "pruned location", thus the backtrack is rejected, and an error is raised on the spot.
+The function `prune` is then invoked, marking the current location (the digit '1') as the limit of backstracking. It then attempts to parse it as a letter and fails. At this point, it would backtrack to the second comma, but it is before the "pruned location", thus the backtrack is rejected, and an error is raised on the spot.
+
+### Dealing with Spaces
+There is one more problem: we do not allow spaces between commas and words, for example, `wordlistParser` does not accept "apple, banana" and would complain about the space:
+
+```shell
+> test wordlistParser "apple, banana"
+Syntax error at row 1 col 7:
+  Unexpected ' '.
+  Expecting letter.
+```
+
+Apparently, it is natural to ignore these spaces, which is our objective in this section. To consume trailing spaces, we first need to define the "space parser" which "eats" extra spaces. There are many different definitions of what should be counted as "space". For instance, we may choose to only consider blankspace ' ' as space and do not include tabs and newlines, or choose to ignore all Unicode characters that are categorised as "space" (including blankspaces, tabs, newlines, vertical tabs, non-breaking blankspaces *etc.*). Here we choose the latter definition.
+
+Again, the lexer module presents a built-in that does the job for us. The function `space` parses a single space character, and we can combine it with the combinator `many` to parse 0, 1, or more consecutive spaces. Finally, we need to make the parser aware of our space parser via the function `setSpaceParser`. In short, we replace the first line of the definition of `test` with:
+
+```Haskell
+test parser inputStr = putStrLn $ case parse (setSpaceParser (many L.space) >> parser <* L.eof) inputStr of
+```
+
+It means before we even use the parser, we set the space parser to `many L.space` which consumes any number of space characters.
+
+Next, we modify `wordlistParser` as following:
+
+```Haskell
+wordlistParser = sepBy1 (lexer (L.char ',')) (prune >> lexer wordParser)
+```
+
+The combinator `lexer` runs its argument parser before invoking the space parser to consume any trailing spaces. Now any spaces after a comma or a word will be ignored:
+
+```shell
+> test wordlistParser "apple, banana"
+["apple","banana"]
+> test wordlistParser "apple, banana  , \t\ncherry  "
+["apple","banana","cherry"]
+> test wordlistParser " apple, banana"
+Syntax error at row 1 col 1:
+  Unexpected ' '.
+  Expecting letter.
+```
+
+The tests above reveal one caveat: the parser still does not ignore any leading spaces. This is not unexpected, since so far we only ignore spaces after a token. The fix is also very easy: at the start, we just need to run `lexer` on a dummy parser that does not do anything, so we modify the definition of `test` again:
+
+```Haskell
+test parser inputStr = putStrLn $ case parse (setSpaceParser (many L.space) >> lexer (pure ()) >> parser <* L.eof) inputStr of
+  Right a  -> show a
+  Left err -> renderErrBundleAsStr err
+```
+
+Here, `pure ()` is such a dummy parser, and `lexer (pure ())` does the same thing as our space parser (which is `many L.space`):
+
+```shell
+> test wordlistParser " apple, banana"
+["apple","banana"]
+```
+
+In fact, the boilerplate of "setting the space parser -> use the space parser to ignore leading spaces -> run main parser -> reject extraneous inputs" is so common that we have a combinator that does exactly the same thing. We can write:
+
+```Haskell
+test parser inputStr = putStrLn $ case parse (L.wrapper (many L.space) parser) inputStr of
+  Right a  -> show a
+  Left err -> renderErrBundleAsStr err
+```
+
+### Letter Range
+
+### Conclusion
+In this tutorial, we utilised some of the basic built-in combinators to implement a simple Wordlist parser. Of course, this is just the tip of the iceberg. In the following sections, we will introduce recursive descent, error handling & recovery, binary stream parsing, and combination with the `State` and `IO` monads. It will be enough to build a decent parser for a fairly complicated grammar!
 
 ## Examples
 TODO
