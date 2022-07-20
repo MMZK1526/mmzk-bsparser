@@ -16,6 +16,13 @@ import           MMZK.BSParser.Parser
 -- ASCII & Latin-1
 --------------------------------------------------------------------------------
 
+-- | Set "spaceParser", use it to ignore leading spaces, run the "BSParserT",
+-- and use "eof" to reject extraneous inputs.
+wrapper :: Monad m
+        => BSParserT e m b -> BSParserT e m a -> BSParserT e m a
+wrapper bp p = setSpaceParser bp >> bp >> p <* eof
+{-# INLINE wrapper #-}
+
 -- | Parse the given token ("Word8"). The result is retained as a "Word8".
 -- Use it with care if the list of tokens contains non-Latin-1 codepoints since
 -- it may extract a fragment of a codepoint.

@@ -1,6 +1,5 @@
 import           MMZK.BSParser
 import qualified MMZK.BSParser.ASCII as PA
-import qualified MMZK.BSParser.Lexer as L
 import           Data.Either
 import           Test.HUnit
 
@@ -67,14 +66,14 @@ jediList = ["Obi-Wan", "Infil'a", "Yoda"]
 -- and "Darth,Sidious,Maul,Tyranus,Vader" are Wordlists, while "   spaces",
 -- "I-have-dashes", "spaces, after, comma" and "trailing,comma," are not.
 parseWordlist1 :: ByteStringLike s => s -> Either (ErrBundle String) [String]
-parseWordlist1 = parse (wordlistParser1 <* L.eof)
+parseWordlist1 = parse (wordlistParser1 <* PA.eof)
 
 wordlistParser1 :: Parser [String]
 wordlistParser1 = sepBy (PA.char ',') (some PA.alpha)
 
 -- | Parse a Wordlist, but allows extra spaces (' ') anywhere between the words.
 parseWordlist2 :: ByteStringLike s => s -> Either (ErrBundle String) [String]
-parseWordlist2 = parse (wordlistParser2 <* L.eof)
+parseWordlist2 = parse (wordlistParser2 <* PA.eof)
 
 wordlistParser2 :: Parser [String]
 wordlistParser2 = do
@@ -84,7 +83,7 @@ wordlistParser2 = do
 
 -- | Parse a Wordlist, but allows the words to contain "'" and "-".
 parseWordlist3 :: ByteStringLike s => s -> Either (ErrBundle String) [String]
-parseWordlist3 = parse (wordlistParser3 <* L.eof)
+parseWordlist3 = parse (wordlistParser3 <* PA.eof)
 
 wordlistParser3 :: Parser [String]
 wordlistParser3 = do

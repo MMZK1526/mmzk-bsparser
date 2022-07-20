@@ -19,6 +19,13 @@ lexer :: Monad m => BSParserT e m a -> BSParserT e m a
 lexer = (<* (getState >>= spaceParser))
 {-# INLINE lexer #-}
 
+-- | Set "spaceParser", use it to ignore leading spaces, run the "BSParserT",
+-- and use "eof" to reject extraneous inputs.
+wrapper :: Monad m
+        => BSParserT e m b -> BSParserT e m a -> BSParserT e m a
+wrapper bp p = setSpaceParser bp >> bp >> p <* eof
+{-# INLINE wrapper #-}
+
 
 --------------------------------------------------------------------------------
 -- String
