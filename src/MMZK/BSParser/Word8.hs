@@ -35,8 +35,7 @@ neg p = do
       ps      <- getState
       (i, ch) <- lookAhead $ withLen latin1
       throw . ErrSpan (parseIndex ps) i
-            $ BasicErr (Just $ UItem Nothing (Just . CToken $ toChar ch))
-                       Nothing Nothing
+            $ BasicErr (UItem Nothing (Just . CToken $ toChar ch)) M.empty []
 {-# INLINE neg #-}
 
 -- | Parse the end-of-input.
@@ -48,9 +47,8 @@ eof = do
     Just (i, ch) -> do
       ps <- getState
       throw . ErrSpan (parseIndex ps) i
-            $ BasicErr (Just $ UItem Nothing (Just . CToken $ toChar ch))
-                       (Just $ M.singleton Nothing (S.singleton EOI)) Nothing
-{-# INLINE eof #-}
+            $ BasicErr (UItem Nothing (Just . CToken $ toChar ch))
+                       (M.singleton Nothing (S.singleton EOI)) []
 
 -- | Parse one of the given tokens ("Word8"). The result is retained as a
 -- "Word8".
@@ -70,13 +68,15 @@ space32 = satisfyL1 (== 32) <??> M.singleton Nothing (S.singleton $ CToken ' ')
 -- | Parse a token ("Word8") representing a space character (空白字符), namely
 -- \t, \n, \r, \f, \v, or  32. The result is retained as a "Word8".
 space :: Monad m => BSParserT e m Word8
-space = satisfyL1 (\ch -> ch == 32 || (ch >= 9 && ch <= 13)) <?> "space"
+space = satisfyL1 (\ch -> ch == 32 || (ch >= 9 && ch <= 13))
+    <?> [bilSpace defaultBuiltInLabels]
 {-# INLINE space #-}
 
 -- | Parse a single digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, or 9. The result is
 -- retained as a "Word8".
 digit :: Monad m => BSParserT e m Word8
-digit = satisfyL1 (\ch -> ch >= 48 && ch <= 57) <?> "digit"
+digit = satisfyL1 (\ch -> ch >= 48 && ch <= 57)
+    <?> [bilDigit defaultBuiltInLabels]
 {-# INLINE digit #-}
 
 -- | Parse a single hexadecimal digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; a, b, c, d,
@@ -84,13 +84,15 @@ digit = satisfyL1 (\ch -> ch >= 48 && ch <= 57) <?> "digit"
 hexDigit :: Monad m => BSParserT e m Word8
 hexDigit = satisfyL1 ( \ch -> (ch >= 48 && ch <= 57)
                            || (ch >= 65 && ch <= 70)
-                           || (ch >= 97 && ch <= 102) ) <?> "hex digit"
+                           || (ch >= 97 && ch <= 102) )
+       <?> [bilHexDigit defaultBuiltInLabels]
 {-# INLINE hexDigit #-}
 
 -- | Parse a single octacal digit: 0, 1, 2, 3, 4, 5, 6, or 7. The result is
 -- retained as a "Word8".
 octDigit :: Monad m => BSParserT e m Word8
-octDigit = satisfyL1 (\ch -> ch >= 48 && ch <= 55) <?> "oct digit"
+octDigit = satisfyL1 (\ch -> ch >= 48 && ch <= 55)
+       <?> [bilOctDigit defaultBuiltInLabels]
 {-# INLINE octDigit #-}
 
 -- | Parse a single binary digit: 0 or 1. The result is retained as a "Word8".
@@ -127,6 +129,7 @@ ascii = satisfy $ const True
 -- P, Q, R, S, T, U, V, W, X, Y, Z. The result is retained as a "Word8".
 alpha :: Monad m => BSParserT e m Word8
 alpha = satisfyL1 (\ch -> (ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122))
+    <?> [bilAlpha defaultBuiltInLabels]
 {-# INLINE alpha #-}
 
 -- | Parse a single ASCII letter or digit: a, b, c, d, e, f, g, h, i, j, k, l,
@@ -137,6 +140,7 @@ alphaNum :: Monad m => BSParserT e m Word8
 alphaNum = satisfyL1 ( \ch -> (ch >= 48 && ch <= 57)
                            || (ch >= 65 && ch <= 90)
                            || (ch >= 97 && ch <= 122) )
+      <?> [bilAlpha defaultBuiltInLabels, bilDigit defaultBuiltInLabels]
 {-# INLINE alphaNum #-}
 
 -- | Parse a single lowercase ASCII letter: a, b, c, d, e, f, g, h, i, j, k, l,
@@ -144,6 +148,7 @@ alphaNum = satisfyL1 ( \ch -> (ch >= 48 && ch <= 57)
 -- "Word8".
 lower :: Monad m => BSParserT e m Word8
 lower = satisfyL1 (\ch -> ch >= 97 && ch <= 122)
+    <?> [bilLower defaultBuiltInLabels]
 {-# INLINE lower #-}
 
 -- | Parse a single uppercase ASCII letter: A, B, C, D, E, F, G, H, I, J, K, L,
@@ -151,6 +156,7 @@ lower = satisfyL1 (\ch -> ch >= 97 && ch <= 122)
 -- "Word8".
 upper :: Monad m => BSParserT e m Word8
 upper = satisfyL1 (\ch -> ch >= 65 && ch <= 90)
+    <?> [bilUpper defaultBuiltInLabels]
 {-# INLINE upper #-}
 
 
@@ -190,6 +196,7 @@ alphaL1 = satisfyL1 ( \ch -> (ch >= 65 && ch <= 90)
                  || (ch >= 97 && ch <= 122)
                  || ch == 170 || ch == 181 || ch == 186
                  || (ch >= 192 && ch /= 215 && ch /= 247) )
+      <?> [bilAlpha defaultBuiltInLabels]
 {-# INLINE alphaL1 #-}
 
 -- | Parse a single Latin-1 letter or digit: a, b, c, d, e, f, g, h, i, j, k, l,
@@ -204,6 +211,7 @@ alphaNumL1 = satisfyL1 ( \ch -> (ch >= 48 && ch <= 57)
                              || (ch >= 97 && ch <= 122)
                              || ch == 170 || ch == 181 || ch == 186
                              || (ch >= 192 && ch /= 215 && ch /= 247) )
+         <?> [bilAlpha defaultBuiltInLabels, bilDigit defaultBuiltInLabels]
 {-# INLINE alphaNumL1 #-}
 
 -- | Parse a single lowercase Latin-1 letter: a, b, c, d, e, f, g, h, i, j, k,
@@ -214,6 +222,7 @@ lowerL1 :: Monad m => BSParserT e m Word8
 lowerL1 = satisfyL1 ( \ch -> (ch >= 97 && ch <= 122)
                           || ch == 181
                           || (ch >= 223 && ch /= 247) )
+      <?> [bilLower defaultBuiltInLabels]
 {-# INLINE lowerL1 #-}
 
 -- | Parse a single uppercase Latin-1 letter: A, B, C, D, E, F, G, H, I, J, K,
@@ -223,4 +232,5 @@ lowerL1 = satisfyL1 ( \ch -> (ch >= 97 && ch <= 122)
 upperL1 :: Monad m => BSParserT e m Word8
 upperL1 = satisfyL1 ( \ch -> (ch >= 65 && ch <= 90) 
                           || (ch >= 192 && ch <= 222 && ch /= 215) )
+      <?> [bilUpper defaultBuiltInLabels]
 {-# INLINE upperL1 #-}

@@ -5,6 +5,7 @@ module MMZK.BSParser.Lexer where
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.Char
+import           Data.Foldable
 import qualified Data.Map as M
 import qualified Data.Set as S
 import           Data.Text (Text)
@@ -53,7 +54,8 @@ text = fmap fromByteString . byteString
 
 -- | Parse the given "Char".
 char :: Monad m => Char -> BSParserT e m Char
-char ch = charToken $ \x -> if x == ch then Just x else Nothing
+char ch = charToken (\x -> if x == ch then Just x else Nothing)
+     <??> M.singleton Nothing (S.singleton $ CToken ch)
 {-# INLINE char #-}
 
 -- | Parse one "Char" using the predicate.
@@ -79,7 +81,7 @@ neg p = do
       ps      <- getState
       (i, ch) <- lookAhead $ withLen anyChar
       throw . ErrSpan (parseIndex ps) i
-            $ BasicErr (Just (UItem Nothing (Just $ CToken ch))) Nothing Nothing
+            $ BasicErr (UItem Nothing (Just $ CToken ch)) M.empty []
 {-# INLINE neg #-}
 
 -- | Parse the end-of-input.
@@ -93,13 +95,19 @@ eof = do
     Right (i, ch) -> do
       ps <- getState
       throw . ErrSpan (parseIndex ps) i
-            $ BasicErr (Just $ UItem Nothing (Just $ CToken ch))
-                       (Just $ M.singleton Nothing (S.singleton EOI)) Nothing
+            $ BasicErr (UItem Nothing (Just $ CToken ch))
+                       (M.singleton Nothing (S.singleton EOI)) []
 {-# INLINE eof #-}
+
+-- | Parse one ASCII character, namely anything with a codepoint below 128.
+ascii :: Monad m => BSParserT e m Char
+ascii = satisfy isAscii <?> [bilAscii defaultBuiltInLabels]
+{-# INLINE ascii #-}
 
 -- | Parse one of the given "Char"s.
 oneOf :: Monad m => Foldable t => t Char -> BSParserT e m Char
 oneOf chs = satisfy (`elem` chs)
+       <??> M.singleton Nothing (S.fromList $ CToken <$> toList chs)
 {-# INLINE oneOf #-}
 
 -- | Parse any Char except those in the list.
@@ -109,62 +117,71 @@ noneOf chs = satisfy (`notElem` chs)
 
 -- | Parse the SPACE character (空格), namely 32.
 space32 :: Monad m => BSParserT e m Char
-space32 = satisfy (== ' ')
+space32 = satisfy (== ' ') <??> M.singleton Nothing (S.singleton $ CToken ' ')
 {-# INLINE space32 #-}
 
 -- | Parse a space character (空白字符), following their General Categories.
 space :: Monad m => BSParserT e m Char
-space = satisfy isSpace
+space = satisfy isSpace <?> [bilSpace defaultBuiltInLabels]
 {-# INLINE space #-}
 
 -- | Parse a single digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, or 9.
 digit :: Monad m => BSParserT e m Char
-digit = satisfy isDigit
+digit = satisfy isDigit <?> [bilDigit defaultBuiltInLabels]
 {-# INLINE digit #-}
 
 -- | Parse a single hexadecimal digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; a, b, c, d,
 -- e, f; A, B, C, D, E, F.
 hexDigit :: Monad m => BSParserT e m Char
-hexDigit = satisfy isHexDigit
+hexDigit = satisfy isHexDigit <?> [bilHexDigit defaultBuiltInLabels]
 {-# INLINE hexDigit #-}
 
 -- | Parse a single octacal digit: 0, 1, 2, 3, 4, 5, 6, or 7.
 octDigit :: Monad m => BSParserT e m Char
-octDigit = satisfy isOctDigit
+octDigit = satisfy isOctDigit <?> [bilOctDigit defaultBuiltInLabels]
 {-# INLINE octDigit #-}
 
 -- | Parse a single binary digit: 0 or 1.
 binDigit :: Monad m => BSParserT e m Char
 binDigit = satisfy (`elem` "01")
+      <??> M.singleton Nothing (S.fromList $ CToken <$> "01")
 {-# INLINE binDigit #-}
+
+-- | Parse a single Unicode number character, following their General
+-- Categories.
+num :: Monad m => BSParserT e m Char
+num = satisfy isNumber <?> [bilNum defaultBuiltInLabels]
+{-# INLINE num #-}
 
 -- | Parse a single alphabetic Unicode characters, following their General
 -- Categories, including Latin, Cyrillic, Greek, CJK, and the script of other
 -- languages.
 alpha :: Monad m => BSParserT e m Char
-alpha = satisfy isAlpha
+alpha = satisfy isAlpha <?> [bilAlpha defaultBuiltInLabels]
 {-# INLINE alpha #-}
 
--- | Parse a single ASCII letter (following their General Categories) or a
+-- | Parse a single Unicode letter (following their General Categories) or a
 -- digit: 0, 1, 2, 3, 4, 5, 6, 7, 8, or 9.
 alphaDigit :: Monad m => BSParserT e m Char
 alphaDigit = satisfy (\ch -> isAlpha ch || isDigit ch)
+         <?> [bilAlpha defaultBuiltInLabels, bilDigit defaultBuiltInLabels]
 {-# INLINE alphaDigit #-}
 
--- | Parse a single ASCII letter or number character, following their General
+-- | Parse a single Unicode letter or number character, following their General
 -- Categories.
 alphaNum :: Monad m => BSParserT e m Char
 alphaNum = satisfy isAlphaNum
+         <?> [bilAlpha defaultBuiltInLabels, bilNum defaultBuiltInLabels]
 {-# INLINE alphaNum #-}
 
 -- | Parse a single lowercase alphabetic Unicode characters, following their
 -- General Categories.
 lower :: Monad m => BSParserT e m Char
-lower = satisfy isLower
+lower = satisfy isLower <?> [bilLower defaultBuiltInLabels]
 {-# INLINE lower #-}
 
 -- | Parse a single uppercase alphabetic Unicode characters, following their
 -- General Categories.
 upper :: Monad m => BSParserT e m Char
-upper = satisfy isUpper
+upper = satisfy isUpper <?> [bilUpper defaultBuiltInLabels]
 {-# INLINE upper #-}

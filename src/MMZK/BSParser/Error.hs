@@ -10,7 +10,6 @@ import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.Map (Map)
 import qualified Data.Map as M
-import           Data.Maybe
 import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Text (Text, pack, unpack)
@@ -78,28 +77,25 @@ instance PP EItem where
 -- | The error type for "BSParser", containing the (optional) unexpected item,
 -- the set of expect items, and the (possibly empty) list of custom error
 -- messages.
-data PError e = BasicErr { unexpected  :: Maybe UItem
-                         , expecting   :: Maybe (Map (Maybe String) (Set Token))
-                         , errMessages :: Maybe [e] }
+data PError e = BasicErr { unexpected  :: UItem
+                         , expecting   :: Map (Maybe String) (Set Token)
+                         , errMessages :: [e] }
               | BadUTF8
   deriving (Eq, Ord, Show)
 
 instance PP e => PP (PError e) where
   pp err@BasicErr {} = T.concat [go1, go2, go3]
     where
-      go1 = case pp <$> unexpected err of
-        Just ""  -> ""
-        Just str -> "  Unexpected " <> str <> "."
-        _        -> ""
-      go2 = case expecting err of
-        Nothing -> ""
-        Just es -> case filter (not . T.null) . fmap (pp . uncurry EItem)
-                 $ M.toList es of
-          []   -> ""
-          strs -> "\n  Expecting " <> T.intercalate "; " strs <> "."
+      go1 = case pp $ unexpected err of
+        ""  -> ""
+        str -> "  Unexpected " <> str <> "."
+      go2 = case filter (not . T.null) . fmap (pp . uncurry EItem)
+                                       $ M.toList (expecting err) of
+        []   -> ""
+        strs -> "\n  Expecting " <> T.intercalate "; " strs <> "."
       go3 = case errMessages err of
-        Just strs -> "\n  " <> T.intercalate "  \n" (pp <$> strs)
-        _         -> ""
+        []   -> ""
+        strs -> "\n  " <> T.intercalate "  \n" (pp <$> strs)
   pp _               = "  Invalid UTF-8 codepoint."
 
 -- ｜ A "PError" together with the location information.
@@ -121,10 +117,7 @@ instance Semigroup (ErrSpan e) where
     EQ -> ErrSpan (esLocation errF) (esLength errF)
         $ case (esError errF, esError errG) of
             (BasicErr u es msgs, BasicErr _ es' msgs')
-              -> BasicErr u ( M.unionWith S.union (fromMaybe M.empty es) 
-                                                  (fromMaybe M.empty es')
-                           <$ es <> es' )
-                 (fromMaybe [] msgs ++ fromMaybe [] msgs' <$ msgs <> msgs')
+              -> BasicErr u (M.unionWith S.union es es') (msgs ++ msgs')
             (BasicErr {}, _) -> esError errF
             _                -> esError errG
 
@@ -133,6 +126,29 @@ data ErrBundle e = ErrBundle { ebErrors   :: [ErrSpan e]
                              , ebStr      :: ByteString
                              , ebTabWidth :: Int }
   deriving (Eq, Show)
+
+-- | Built-in error labels.
+data BuiltInLabels = BuiltInLabels { bilSpace    :: String
+                                   , bilDigit    :: String
+                                   , bilHexDigit :: String
+                                   , bilOctDigit :: String
+                                   , bilNum      :: String
+                                   , bilAlpha    :: String
+                                   , bilUpper    :: String
+                                   , bilLower    :: String
+                                   , bilAscii    :: String }
+
+-- | Default error labels.
+defaultBuiltInLabels :: BuiltInLabels
+defaultBuiltInLabels = BuiltInLabels { bilSpace    = "space"
+                                     , bilDigit    = "digit"
+                                     , bilHexDigit = "hex digit"
+                                     , bilOctDigit = "oct digit"
+                                     , bilNum      = "number char"
+                                     , bilAlpha    = "letter"
+                                     , bilUpper    = "uppercase letter"
+                                     , bilLower    = "lowercase letter"
+                                     , bilAscii    = "ascii char" }
 
 -- | Pretty-print the errors in the "ErrBundle" as a "Text".
 renderErrBundle :: PP e => ErrBundle e -> Text
@@ -181,8 +197,9 @@ renderErrBundle eb = T.concat $ showError <$> errRowCols
 -- | Pretty-print the errors in the "ErrBundle" as a "String".
 renderErrBundleAsStr :: PP e => ErrBundle e -> String
 renderErrBundleAsStr = unpack . renderErrBundle
+{-# INLINE renderErrBundleAsStr #-}
 
 -- | The empty "PError".
 nil :: PError e
-nil = BasicErr Nothing Nothing Nothing
+nil = BasicErr (UItem Nothing Nothing) M.empty []
 {-# INLINE nil #-}

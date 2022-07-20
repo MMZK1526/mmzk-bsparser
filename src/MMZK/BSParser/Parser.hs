@@ -12,7 +12,6 @@ import qualified Data.ByteString.UTF8 as BSU
 import           Data.Functor.Identity
 import           Data.Map (Map)
 import qualified Data.Map as M
-import           Data.Maybe
 import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Word
@@ -164,9 +163,9 @@ throw err = BSParserT $ \ps -> pure (Left err, ps)
 -- problem of the input stream. If we want to allow invalid UTF-8 encodings,
 -- use @setAllowBadCP False@.
 touch :: Monad m
-      => (Maybe UItem -> Maybe UItem)
-      -> (Maybe (Map (Maybe String) (Set Token)) -> Maybe (Map (Maybe String) (Set Token)))
-      -> (Maybe [e] -> Maybe [e])
+      => (UItem -> UItem)
+      -> (Map (Maybe String) (Set Token) -> Map (Maybe String) (Set Token))
+      -> ([e] -> [e])
       -> BSParserT e m a -> BSParserT e m a
 touch uf esf msgsf p = do
   result <- inspect p
@@ -178,24 +177,6 @@ touch uf esf msgsf p = do
         where
           err' = err { esError = BasicErr (uf u) (esf es) (msgsf msgs) }
 {-# INLINE touch #-}
-
--- | Set the expected label for the "BSParserT".
--- If the expected label is already set by this operator or (<??>), it will not
--- be changed again.
-(<?>) :: Monad m => BSParserT e m a -> String -> BSParserT e m a
-p <?> l = touch id f id p
-  where
-    f Nothing = Just $ M.singleton (Just l) S.empty
-    f just    = just
-{-# INLINE (<?>) #-}
-
--- | Set all expected elements for "BSParserT".
--- If the expected label is already set by this operator or (<?>), it will not
--- be changed again.
-(<??>) :: Monad m
-       => BSParserT e m a -> Map (Maybe String) (Set Token) -> BSParserT e m a
-p <??> es = touch id (Just . fromMaybe es) id p
-{-# INLINE (<??>) #-}
 
 -- | Flush the remaining unprocessed bits in the current token ("Word8"). If the
 -- input "ByteString" contains both binary and UTF-8, call this function
@@ -216,9 +197,9 @@ token f = BSParserT $ \ps -> return $ case headPS ps of
     Nothing -> (Left $ ErrSpan (parseIndex ps) 1 (misErr ch), ps)
     Just a  -> (Right a, incPS ps)
   where
-    eoiErr     = BasicErr (Just $ UItem Nothing (Just EOI)) Nothing Nothing
-    misErr ch' = BasicErr (Just $ UItem Nothing (Just . CToken $ toChar ch'))
-                          Nothing Nothing
+    eoiErr     = BasicErr (UItem Nothing (Just EOI)) M.empty []
+    misErr ch' = BasicErr (UItem Nothing (Just . CToken $ toChar ch'))
+                          M.empty []
 
 -- | Parse the first n tokens ("ByteString") using the predicate function. If
 -- the predicate returns "Nothing", fail the "BSParserT".
@@ -233,8 +214,7 @@ tokens n f = BSParserT $ \ps -> do
     toToken bs'
       | BS.length bs' == 0 && n > 0 = EOI
       | otherwise                   = SToken bs'
-    misErr bs' = BasicErr (Just $ UItem Nothing (Just $ toToken bs'))
-                 Nothing Nothing
+    misErr bs' = BasicErr (UItem Nothing (Just $ toToken bs')) M.empty []
 
 -- | Parse one "Char" codepoint using the predicate function. If the predicate
 -- returns "Nothing", fail the "BSParserT". If the codepoint is invalid, the
@@ -254,9 +234,8 @@ charToken f = BSParserT $ \ps -> do
           else runPredicate
         _        -> runPredicate
   where
-    eoiErr     = BasicErr (Just $ UItem Nothing (Just EOI)) Nothing Nothing
-    misErr ch' = BasicErr (Just $ UItem Nothing (Just $ CToken ch'))
-                          Nothing Nothing
+    eoiErr     = BasicErr (UItem Nothing (Just EOI)) M.empty []
+    misErr ch' = BasicErr (UItem Nothing (Just $ CToken ch')) M.empty []
 
 -- | Behave the same as "BSParserT" except it does not consume any input or
 -- modify any state.
@@ -359,3 +338,19 @@ sepEndBy1 ps pa = sepBy1 ps pa <* optional ps
 pmap :: Monad m => (b -> Maybe a) -> BSParserT e m b -> BSParserT e m a
 pmap f p = p >>= maybe empty pure . f
 {-# INLINE pmap #-}
+
+-- | Set the expected labels for the "BSParserT".
+-- If the expected labels are already set by this operator or (<??>), the old
+-- labels will be overwritten.
+(<?>) :: Monad m => BSParserT e m a -> [String] -> BSParserT e m a
+p <?> ls
+  = touch id (const $ M.fromList . zip (Just <$> ls) $ repeat S.empty) id p
+{-# INLINE (<?>) #-}
+
+-- | Set all expected elements for "BSParserT".
+-- If the expected labels are already set by this operator or (<?>), the old
+-- labels will be overwritten.
+(<??>) :: Monad m
+       => BSParserT e m a -> Map (Maybe String) (Set Token) -> BSParserT e m a
+p <??> es = touch id (const es) id p
+{-# INLINE (<??>) #-}
