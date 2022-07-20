@@ -14,6 +14,7 @@ import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
+import           Data.Text (Text)
 import           Data.Word
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Error
@@ -164,7 +165,7 @@ throw err = BSParserT $ \ps -> pure (Left err, ps)
 -- use @setAllowBadCP False@.
 touch :: Monad m
       => (UItem -> UItem)
-      -> (Map (Maybe String) (Set Token) -> Map (Maybe String) (Set Token))
+      -> (Map (Maybe Text) (Set Token) -> Map (Maybe Text) (Set Token))
       -> ([e] -> [e])
       -> BSParserT e m a -> BSParserT e m a
 touch uf esf msgsf p = do
@@ -342,7 +343,7 @@ pmap f p = p >>= maybe empty pure . f
 -- | Set the expected labels for the "BSParserT".
 -- If the expected labels are already set by this operator or (<??>), the old
 -- labels will be overwritten.
-(<?>) :: Monad m => BSParserT e m a -> [String] -> BSParserT e m a
+(<?>) :: Monad m => BSParserT e m a -> [Text] -> BSParserT e m a
 p <?> ls
   = touch id (const $ M.fromList . zip (Just <$> ls) $ repeat S.empty) id p
 {-# INLINE (<?>) #-}
@@ -351,6 +352,6 @@ p <?> ls
 -- If the expected labels are already set by this operator or (<?>), the old
 -- labels will be overwritten.
 (<??>) :: Monad m
-       => BSParserT e m a -> Map (Maybe String) (Set Token) -> BSParserT e m a
+       => BSParserT e m a -> Map (Maybe Text) (Set Token) -> BSParserT e m a
 p <??> es = touch id (const es) id p
 {-# INLINE (<??>) #-}

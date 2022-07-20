@@ -38,20 +38,20 @@ data Token = CToken Char | SToken ByteString | EOI
 instance PP Token where
   pp (CToken ch)  = T.concat ["'", T.singleton ch, "'"]
   pp (SToken str) = T.concat ["\"", fromByteString str, "\""]
-  pp EOI          = "<end of input>"
+  pp EOI          = bilEOF defaultBuiltInLabels
 
 -- | A "Token" with an optional label used to describe an unexpected token
 -- during parsing.
-data UItem = UItem (Maybe String) (Maybe Token)
+data UItem = UItem (Maybe Text) (Maybe Token)
   deriving (Eq, Ord, Show)
 
 instance PP UItem where
   pp (UItem Nothing tk)    = maybe "" pp tk
-  pp (UItem (Just str) tk) = maybe (pack str) (((pack str <> " ") <>) . pp) tk
+  pp (UItem (Just txt) tk) = maybe txt (((txt <> " ") <>) . pp) tk
 
 -- | A group of "Token" with an optional label used to describe the group of
 -- tokens expected for a parsing error.
-data EItem = EItem (Maybe String) (Set Token)
+data EItem = EItem (Maybe Text) (Set Token)
   deriving Show
 
 instance Eq EItem where
@@ -63,10 +63,10 @@ instance Ord EItem where
 instance PP EItem where
   pp (EItem mStr tks) = case mStr of
     Nothing  -> go tkList
-    Just str -> case tkList of
-      []   -> pack str
-      [tk] -> pack str <> " " <> pp tk
-      tks' -> pack str <> " (" <> go tks' <> ")"
+    Just txt -> case tkList of
+      []   -> txt
+      [tk] -> txt <> " " <> pp tk
+      tks' -> txt <> " (" <> go tks' <> ")"
     where
       tkList         = S.toAscList tks
       go []          = ""
@@ -78,7 +78,7 @@ instance PP EItem where
 -- the set of expect items, and the (possibly empty) list of custom error
 -- messages.
 data PError e = BasicErr { unexpected  :: UItem
-                         , expecting   :: Map (Maybe String) (Set Token)
+                         , expecting   :: Map (Maybe Text) (Set Token)
                          , errMessages :: [e] }
               | BadUTF8
   deriving (Eq, Ord, Show)
@@ -128,15 +128,16 @@ data ErrBundle e = ErrBundle { ebErrors   :: [ErrSpan e]
   deriving (Eq, Show)
 
 -- | Built-in error labels.
-data BuiltInLabels = BuiltInLabels { bilSpace    :: String
-                                   , bilDigit    :: String
-                                   , bilHexDigit :: String
-                                   , bilOctDigit :: String
-                                   , bilNum      :: String
-                                   , bilAlpha    :: String
-                                   , bilUpper    :: String
-                                   , bilLower    :: String
-                                   , bilAscii    :: String }
+data BuiltInLabels = BuiltInLabels { bilSpace    :: Text
+                                   , bilDigit    :: Text
+                                   , bilHexDigit :: Text
+                                   , bilOctDigit :: Text
+                                   , bilNum      :: Text
+                                   , bilAlpha    :: Text
+                                   , bilUpper    :: Text
+                                   , bilLower    :: Text
+                                   , bilAscii    :: Text
+                                   , bilEOF      :: Text }
 
 -- | Default error labels.
 defaultBuiltInLabels :: BuiltInLabels
@@ -148,7 +149,8 @@ defaultBuiltInLabels = BuiltInLabels { bilSpace    = "space"
                                      , bilAlpha    = "letter"
                                      , bilUpper    = "uppercase letter"
                                      , bilLower    = "lowercase letter"
-                                     , bilAscii    = "ascii char" }
+                                     , bilAscii    = "ascii char"
+                                     , bilEOF      = "<end of input>" }
 
 -- | Pretty-print the errors in the "ErrBundle" as a "Text".
 renderErrBundle :: PP e => ErrBundle e -> Text
