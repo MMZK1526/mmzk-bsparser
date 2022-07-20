@@ -19,13 +19,16 @@ import           Data.Word
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Error
 
-data ParseState e m = ParseState { parseStr    :: ByteString
-                                 , parseIndex  :: Int
-                                 , bitOffset   :: Int
-                                 , allowBadCP  :: Bool
-                                 , spaceParser :: BSParserT e m ()
-                                 , errorStack  :: [ErrSpan e]
-                                 , tabWidth    :: Int }
+data ParseState e m = ParseState
+  { parseStr    :: ByteString -- ^ The input string
+  , parseIndex  :: Int -- ^ The current index
+  , bitOffset   :: Int -- ^ The current bit in the current word
+  , allowBadCP  :: Bool -- ^ Allow invalid UTF-8 encoding (default to False)
+  , spaceParser :: BSParserT e m () -- ^ How to consume space
+  , errorStack  :: [ErrSpan e] -- ^ Saved errors
+  , tabWidth    :: Int  -- ^ Width of tab (default to 4)
+  , pruneIndex  :: Int -- ^ Lower limit of backtracking
+  }
 
 instance Eq (ParseState e m) where
   a == b = parseIndex a == parseIndex b && bitOffset a == bitOffset b
@@ -76,13 +79,15 @@ instance Monad m => A.Alternative (BSParserT e m) where
   f <|> g = BSParserT $ \ps -> do
     (ma, psF) <- runParserT f ps
     case ma of
-      Left errF -> do
-        (mb, psG) <- runParserT g ps
-        case mb of
-          Left errG -> pure . (Left $ errF <> errG ,) $ if errF > errG
-            then psF
-            else psG
-          success -> pure (success, psG)
+      Left errF -> if pruneIndex psF > parseIndex ps
+        then pure (Left errF, psF)
+        else do
+          (mb, psG) <- runParserT g ps
+          case mb of
+            Left errG -> pure . (Left $ errF <> errG ,) $ if errF > errG
+              then psF
+              else psG
+            success -> pure (success, psG)
       success -> pure (success, psF)
 
 instance Monad m => MonadPlus (BSParserT e m)
@@ -113,7 +118,8 @@ parseT parser str = do
                            , bitOffset   = 0
                            , spaceParser = pure ()
                            , errorStack  = []
-                           , tabWidth    = 4 }
+                           , tabWidth    = 4
+                           , pruneIndex  = 0 }
 {-# INLINE parseT #-}
 
 parse :: ByteStringLike s => BSParser e a -> s -> Either (ErrBundle e) a
@@ -158,26 +164,11 @@ throw :: Monad m => ErrSpan e -> BSParserT e m a
 throw err = BSParserT $ \ps -> pure (Left err, ps)
 {-# INLINE throw #-}
 
--- | Modify the error thrown by the "BSParserT" by changing its unexpected
--- token, expected tokens, and the custom message.
--- The function cannot modify a "BadUTF8" error as its considered as a breaking
--- problem of the input stream. If we want to allow invalid UTF-8 encodings,
--- use @setAllowBadCP False@.
-touch :: Monad m
-      => (UItem -> UItem)
-      -> (Map (Maybe Text) (Set Token) -> Map (Maybe Text) (Set Token))
-      -> ([e] -> [e])
-      -> BSParserT e m a -> BSParserT e m a
-touch uf esf msgsf p = do
-  result <- inspect p
-  case result of
-    Right a  -> pure a
-    Left err -> throw $ case esError err of
-      BadUTF8            -> err
-      BasicErr u es msgs -> err'
-        where
-          err' = err { esError = BasicErr (uf u) (esf es) (msgsf msgs) }
-{-# INLINE touch #-}
+-- | Set the "pruneIndex" to "parseIndex", stopping backtrack beyond the current
+-- index.
+prune :: Monad m => BSParserT e m ()
+prune = BSParserT $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps })
+{-# INLINE prune #-}
 
 -- | Flush the remaining unprocessed bits in the current token ("Word8"). If the
 -- input "ByteString" contains both binary and UTF-8, call this function
@@ -355,3 +346,24 @@ p <?> ls
        => BSParserT e m a -> Map (Maybe Text) (Set Token) -> BSParserT e m a
 p <??> es = touch id (const es) id p
 {-# INLINE (<??>) #-}
+
+-- | Modify the error thrown by the "BSParserT" by changing its unexpected
+-- token, expected tokens, and the custom message.
+-- The function cannot modify a "BadUTF8" error as its considered as a breaking
+-- problem of the input stream. If we want to allow invalid UTF-8 encodings,
+-- use @setAllowBadCP False@.
+touch :: Monad m
+      => (UItem -> UItem)
+      -> (Map (Maybe Text) (Set Token) -> Map (Maybe Text) (Set Token))
+      -> ([e] -> [e])
+      -> BSParserT e m a -> BSParserT e m a
+touch uf esf msgsf p = do
+  result <- inspect p
+  case result of
+    Right a  -> pure a
+    Left err -> throw $ case esError err of
+      BadUTF8            -> err
+      BasicErr u es msgs -> err'
+        where
+          err' = err { esError = BasicErr (uf u) (esf es) (msgsf msgs) }
+{-# INLINE touch #-}

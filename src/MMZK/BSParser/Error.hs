@@ -86,16 +86,20 @@ data PError e = BasicErr { unexpected  :: UItem
 instance PP e => PP (PError e) where
   pp err@BasicErr {} = T.concat [go1, go2, go3]
     where
+      go []          = ""
+      go [tk]        = tk
+      go [tk, tk']   = tk <> " or " <> tk'
+      go (tk : tks') = tk <> ", " <> go tks'
       go1 = case pp $ unexpected err of
         ""  -> ""
         str -> "  Unexpected " <> str <> "."
       go2 = case filter (not . T.null) . fmap (pp . uncurry EItem)
                                        $ M.toList (expecting err) of
         []   -> ""
-        strs -> "\n  Expecting " <> T.intercalate "; " strs <> "."
+        txts -> "\n  Expecting " <> go txts <> "."
       go3 = case errMessages err of
         []   -> ""
-        strs -> "\n  " <> T.intercalate "  \n" (pp <$> strs)
+        txts -> "\n  " <> T.intercalate "  \n" (pp <$> txts)
   pp _               = "  Invalid UTF-8 codepoint."
 
 -- ｜ A "PError" together with the location information.
