@@ -8,7 +8,9 @@ module MMZK.BSParser.Error where
 import           Data.Bifunctor
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.UTF8 as BSU
 import           Data.Map (Map)
+import           Data.Maybe
 import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
@@ -175,14 +177,14 @@ renderErrBundle eb = T.concat $ showError <$> errRowCols
       | i == BS.length str = bimap succ (second succ) (slide entry (i - 1))
       | fst entry < i      = goF entry i
       | otherwise          = goB entry i
-    goF (i, (r, c)) i'
-      | i < i'    = case str `BS.index` i of
-        7  -> goF (i + 1, (r, c + ebTabWidth eb)) i'
-        10 -> goF (i + 1, (r, c)) i'
-        13 -> goF (i + 1, (r, c)) i'
-        _  -> goF (i + 1, (r, c + 1)) i'
-      | otherwise = (i, (r, c))
-    goB (i, (r, c)) i'
+    goF entry@(i, (r, c)) i'
+      | i < i'    = case fromJust . BSU.decode $ BS.drop i str of
+        ('\t', _) -> goF (i + 1, (r, c + ebTabWidth eb)) i'
+        ('\n', _) -> goF (i + 1, (r, c)) i'
+        ('\r', _) -> goF (i + 1, (r, c)) i'
+        (_, ix)   -> if i + ix > i' then entry else goF (i + ix, (r, c + 1)) i'
+      | otherwise = entry
+    goB (i, (r, c)) i' -- TODO: Decode
       | i > i'    = case str `BS.index` i of
         7  -> goF (i - 1, (r, c - ebTabWidth eb)) i'
         10 -> goF (i - 1, (r - 1, c)) i'
