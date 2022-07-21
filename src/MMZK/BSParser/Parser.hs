@@ -155,6 +155,29 @@ setSpaceParser p = BSParserT
                  $ \ps -> pure (Right (), ps { spaceParser = void p })
 {-# INLINE setSpaceParser #-}
 
+-- | Set the "pruneIndex" to "parseIndex", stopping backtrack beyond the current
+-- index.
+prune :: Monad m => BSParserT e m ()
+prune = BSParserT $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps })
+{-# INLINE prune #-}
+
+-- | Use "prune" within the given "BSParserT". If the latter succeeds, restore
+-- the "pruneIndex".
+withPrune :: Monad m => BSParserT e m a -> BSParserT e m a
+withPrune p = BSParserT $ \ps -> do
+  (r, ps') <- runParserT p ps { pruneIndex = parseIndex ps }
+  return . (r ,) $ case r of
+    Left _  -> ps'
+    Right _ -> ps' { pruneIndex = pruneIndex ps }
+{-# INLINE withPrune #-}
+
+-- | Set the tab width for the parser. The tab width will affect the column
+-- number of the characters in the input stream.
+-- It must be at least 1. If it is less than 1, the value will be ignored.
+setTabWidth :: Monad m => Int -> BSParserT e m ()
+setTabWidth w = BSParserT $ \ps -> pure (Right (), ps { tabWidth = w })
+{-# INLINE setTabWidth #-}
+
 -- | Get the parse result as well as the error of the "BSParserT".
 inspect :: Monad m => BSParserT e m a -> BSParserT e m (Either (ErrSpan e) a)
 inspect p = BSParserT $ fmap (first Right) . runParserT p
@@ -171,22 +194,6 @@ withLen p = BSParserT $ \ps -> do
 throw :: Monad m => ErrSpan e -> BSParserT e m a
 throw err = BSParserT $ \ps -> pure (Left err, ps)
 {-# INLINE throw #-}
-
--- | Set the "pruneIndex" to "parseIndex", stopping backtrack beyond the current
--- index.
-prune :: Monad m => BSParserT e m ()
-prune = BSParserT $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps })
-{-# INLINE prune #-}
-
--- | Use "prune" within the given "BSParserT". If the latter succeeds, restore
--- the "pruneIndex".
-withPrune :: Monad m => BSParserT e m a -> BSParserT e m a
-withPrune p = BSParserT $ \ps -> do
-  (r, ps') <- runParserT p ps { pruneIndex = parseIndex ps }
-  return . (r ,) $ case r of
-    Left _  -> ps'
-    Right _ -> ps' { pruneIndex = pruneIndex ps }
-{-# INLINE withPrune #-}
 
 -- | Flush the remaining unprocessed bits in the current token ("Word8"). If the
 -- input "ByteString" contains both binary and UTF-8, call this function

@@ -197,7 +197,7 @@ renderErrBundle eb = T.concat $ showError <$> ebErrors eb
                                       , " col ", pack $ show c, " - "
                                       , pack $ show c']
       | otherwise          = T.concat [ "Syntax error between row "
-                                      , pack $ show r , " col ", pack $ show c
+                                      , pack $ show r, " col ", pack $ show c
                                       , " and row ", pack $ show r', " col "
                                       , pack $ show c']
 
