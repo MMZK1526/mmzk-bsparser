@@ -10,6 +10,8 @@ import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BSU
 import           Data.Functor.Identity
+import           Data.IntSet (IntSet)
+import qualified Data.IntSet as IS
 import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Set (Set)
@@ -26,6 +28,7 @@ data ParseState e m = ParseState
   , allowBadCP  :: Bool -- ^ Allow invalid UTF-8 encoding (default to False)
   , spaceParser :: BSParserT e m () -- ^ How to consume space
   , errorStack  :: [ErrSpan e] -- ^ Saved errors
+  , errorLocs   :: IntSet -- ^ Error locations (start & end indices)
   , tabWidth    :: Int  -- ^ Width of tab (default to 4)
   , pruneIndex  :: Int -- ^ Lower limit of backtracking
   }
@@ -75,7 +78,8 @@ instance Monad m => Monad (BSParserT e m) where
       Left err -> pure (Left err, ps')
 
 instance Monad m => A.Alternative (BSParserT e m) where
-  empty   = BSParserT $ \ps -> pure (Left $ ErrSpan (parseIndex ps) 1 nil, ps)
+  empty   = BSParserT
+          $ \ps -> pure (Left $ ErrSpan (parseIndex ps, parseIndex ps) nil, ps)
   f <|> g = BSParserT $ \ps -> do
     (ma, psF) <- runParserT f ps
     case ma of
@@ -109,7 +113,10 @@ parseT parser str = do
   (result, ps) <- runParserT parser initState
   return $ case result of
     Right a -> Right a
-    Left e  -> Left $ ErrBundle (reverse $ e : errorStack ps)
+    Left e  -> Left $ ErrBundle (e : errorStack ps)
+                                ( IS.insert (fst $ esLoc e)
+                                            (IS.insert (uncurry max (esLoc e))
+                                                       (errorLocs ps)) )
                                 (parseStr ps) (tabWidth ps)
   where
     initState = ParseState { parseIndex  = 0
@@ -118,6 +125,7 @@ parseT parser str = do
                            , bitOffset   = 0
                            , spaceParser = pure ()
                            , errorStack  = []
+                           , errorLocs   = IS.empty
                            , tabWidth    = 4
                            , pruneIndex  = 0 }
 {-# INLINE parseT #-}
@@ -194,28 +202,31 @@ flush = BSParserT $ \ps -> pure $ case bitOffset ps of
 -- returns "Nothing", fail the "BSParserT".
 token :: Monad m => (Word8 -> Maybe a) -> BSParserT e m a
 token f = BSParserT $ \ps -> return $ case headPS ps of
-  Nothing -> (Left $ ErrSpan (parseIndex ps) 1 eoiErr, ps)
+  Nothing -> (Left $ ErrSpan (parseIndex ps, parseIndex ps) eoiErr, ps)
   Just ch -> case f ch of
-    Nothing -> (Left $ ErrSpan (parseIndex ps) 1 (misErr ch), ps)
+    Nothing -> (Left $ ErrSpan (parseIndex ps, parseIndex ps) (misErr ch), ps)
     Just a  -> (Right a, incPS ps)
   where
     eoiErr     = BasicErr (UItem Nothing (Just EOI)) M.empty []
     misErr ch' = BasicErr (UItem Nothing (Just . CToken $ toChar ch'))
                           M.empty []
 
--- | Parse the first n tokens ("ByteString") using the predicate function. If
--- the predicate returns "Nothing", fail the "BSParserT".
+-- | Parse the first n (n > 0) tokens ("ByteString") using the predicate
+-- function. If the predicate returns "Nothing", fail the "BSParserT".
 tokens :: Monad m
        => ByteStringLike s => Int -> (s -> Maybe a) -> BSParserT e m a
 tokens n f = BSParserT $ \ps -> do
   let bs  = firstNPS n ps
   pure $ case f . fromByteString $ bs of
-    Nothing -> (Left $ ErrSpan (parseIndex ps) (BS.length bs) (misErr bs), ps)
+    Nothing -> ( Left $ ErrSpan ( parseIndex ps
+                                , parseIndex ps + BS.length bs - 1 )
+                                (misErr bs)
+               , ps )
     Just as -> (Right as, addPS n ps)
   where
     toToken bs'
-      | BS.length bs' == 0 && n > 0 = EOI
-      | otherwise                   = SToken bs'
+      | BS.length bs' == 0 = EOI
+      | otherwise          = SToken bs'
     misErr bs' = BasicErr (UItem Nothing (Just $ toToken bs')) M.empty []
 
 -- | Parse one "Char" codepoint using the predicate function. If the predicate
@@ -225,14 +236,14 @@ charToken :: Monad m => (Char -> Maybe a) -> BSParserT e m a
 charToken f = BSParserT $ \ps -> do
   let ix = parseIndex ps
   pure $ case BSU.decode (BS.drop ix (parseStr ps)) of
-    Nothing      -> (Left $ ErrSpan ix 1 eoiErr, ps)
+    Nothing      -> (Left $ ErrSpan (ix, ix) eoiErr, ps)
     Just (ch, i) -> do
       let runPredicate = case f ch of
-            Nothing -> (Left $ ErrSpan ix i (misErr ch), ps)
+            Nothing -> (Left $ ErrSpan (ix, ix + i - 1) (misErr ch), ps)
             Just a  -> (Right a, addPS i ps)
       case ch of
         '\xFFFD' -> if firstNPS i ps /= toByteString [ch] && not (allowBadCP ps)
-          then (Left $ ErrSpan ix i BadUTF8, ps)
+          then (Left $ ErrSpan (ix, ix + i - 1) BadUTF8, ps)
           else runPredicate
         _        -> runPredicate
   where

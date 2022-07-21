@@ -36,10 +36,12 @@ library
 
     other-modules:
         MMZK.BSParser.Convert,
+        MMZK.BSParser.Debug
         MMZK.BSParser.Lexer.Regex
         MMZK.BSParser.Parser
 
     other-extensions:
+        CPP,
         FlexibleInstances,
         OverloadedStrings,
         TupleSections
@@ -56,6 +58,7 @@ library
         ghc-options: -O3 -Wall
     else
         ghc-options: -O0 -Wall
+        cpp-options: -DASSERTS
 
 
 test-suite wordlist

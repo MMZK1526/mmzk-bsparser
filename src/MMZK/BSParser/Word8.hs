@@ -41,7 +41,7 @@ neg p = do
     Just _  -> do
       ps      <- getState
       (i, ch) <- lookAhead $ withLen latin1
-      throw . ErrSpan (parseIndex ps) i
+      throw . ErrSpan (parseIndex ps, parseIndex ps + i - 1)
             $ BasicErr (UItem Nothing (Just . CToken $ toChar ch)) M.empty []
 {-# INLINE neg #-}
 
@@ -53,7 +53,7 @@ eof = do
     Nothing      -> pure ()
     Just (i, ch) -> do
       ps <- getState
-      throw . ErrSpan (parseIndex ps) i
+      throw . ErrSpan (parseIndex ps, parseIndex ps + i - 1)
             $ BasicErr (UItem Nothing (Just . CToken $ toChar ch))
                        (M.singleton Nothing (S.singleton EOI)) []
 

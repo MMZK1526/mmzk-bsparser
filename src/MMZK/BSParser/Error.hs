@@ -5,10 +5,12 @@
 
 module MMZK.BSParser.Error where
 
-import           Data.Bifunctor
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BSU
+import qualified Data.IntMap as IM
+import           Data.IntSet (IntSet)
+import qualified Data.IntSet as IS
 import           Data.Map (Map)
 import           Data.Maybe
 import qualified Data.Map as M
@@ -17,6 +19,7 @@ import qualified Data.Set as S
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Text as T
 import           Data.Void
+import           MMZK.BSParser.Debug
 import           MMZK.BSParser.Convert
 
 -- | A class similar to "Show", but returns a "Text". It is used to provide an
@@ -105,22 +108,21 @@ instance PP e => PP (PError e) where
   pp _               = "  Invalid UTF-8 codepoint."
 
 -- ｜ A "PError" together with the location information.
-data ErrSpan e = ErrSpan { esLocation :: Int  -- ^ Position of the start
-                         , esLength   :: Int  -- ^ Length of the error
-                         , esError    :: PError e }
+data ErrSpan e = ErrSpan { esLoc   :: (Int, Int) -- ^ Start and end indices
+                         , esError :: PError e }
   deriving Show
 
 instance Eq (ErrSpan e) where
-  es1 == es2 = (esLocation es1, esLength es1) == (esLocation es2, esLength es2)
+  es1 == es2 = esLoc es1 == esLoc es2
 
 instance Ord (ErrSpan e) where
-  es1 <= es2 = (esLocation es1, esLength es1) <= (esLocation es2, esLength es2)
+  es1 <= es2 = esLoc es1 <= esLoc es2
 
 instance Semigroup (ErrSpan e) where
   errF <> errG = case compare errF errG of
     LT -> errG
     GT -> errF
-    EQ -> ErrSpan (esLocation errF) (esLength errF)
+    EQ -> ErrSpan (esLoc errF)
         $ case (esError errF, esError errG) of
             (BasicErr u es msgs, BasicErr _ es' msgs')
               -> BasicErr u (M.unionWith S.union es es') (msgs ++ msgs')
@@ -129,6 +131,7 @@ instance Semigroup (ErrSpan e) where
 
 -- | The error bundle that contains "ErrSpan"s as well as the original input.
 data ErrBundle e = ErrBundle { ebErrors   :: [ErrSpan e]
+                             , ebLocs     :: IntSet
                              , ebStr      :: ByteString
                              , ebTabWidth :: Int }
   deriving (Eq, Show)
@@ -160,37 +163,33 @@ defaultBuiltInLabels = BuiltInLabels { bilSpace    = "space"
 
 -- | Pretty-print the errors in the "ErrBundle" as a "Text".
 renderErrBundle :: PP e => ErrBundle e -> Text
-renderErrBundle eb = T.concat $ showError <$> errRowCols
+renderErrBundle eb = T.concat $ showError <$> ebErrors eb
   where
     str           = ebStr eb
-    showError erc = case pp $ fst erc of
-      ""   -> T.concat [showSpan $ snd erc, "."]
-      eStr -> T.concat [showSpan $ snd erc, ":\n", eStr]
-    errRowCols    = go (0, (1 :: Int, 1)) (ebErrors eb)
-    go entry es   = case es of
-      []      -> []
-      e : es' -> let entry'  = slide entry (esLocation e)
-                     entry'' = slide entry' (esLocation e + esLength e - 1)
-                 in  (esError e, (snd entry', snd entry'')) : go entry'' es'
-    slide entry i
-      | fst entry == i     = entry
-      | i == BS.length str = bimap succ (second succ) (slide entry (i - 1))
-      | fst entry < i      = goF entry i
-      | otherwise          = goB entry i
-    goF entry@(i, (r, c)) i'
+    showError err = case ( IM.lookup (fst $ esLoc err) errRowCols
+                         , IM.lookup (snd $ esLoc err) errRowCols ) of 
+      (Just s, Just e) -> case pp $ esError err of
+        ""   -> T.concat [showSpan (s, e), "."]
+        eStr -> T.concat [showSpan (s, e), ":\n", eStr]
+      _                -> __UNREACHABLE__
+                        $ let [(_, s)] = work (0, (1, 1)) [fst $ esLoc err]
+                              [(_, e)] = work (0, (1, 1)) [snd $ esLoc err]
+                          in case pp $ esError err of
+        ""   -> T.concat [showSpan (s :: (Int, Int), e), "."]
+        eStr -> T.concat [showSpan (s, e), ":\n", eStr]
+    errRowCols    = IM.fromList $ work (0, (1 :: Int, 1))
+                                       (IS.toAscList $ ebLocs eb)
+    work _ []     = []
+    work entry@(i, (r, c)) ixs@(i' : ixs')
       | i < i'    = case fromJust . BSU.decode $ BS.drop i str of
-        ('\t', _) -> goF (i + 1, (r, c + ebTabWidth eb)) i'
-        ('\n', _) -> goF (i + 1, (r, c)) i'
-        ('\r', _) -> goF (i + 1, (r, c)) i'
-        (_, ix)   -> if i + ix > i' then entry else goF (i + ix, (r, c + 1)) i'
-      | otherwise = entry
-    goB (i, (r, c)) i' -- TODO: Decode
-      | i > i'    = case str `BS.index` i of
-        7  -> goF (i - 1, (r, c - ebTabWidth eb)) i'
-        10 -> goF (i - 1, (r - 1, c)) i'
-        13 -> goF (i - 1, (r, c)) i'
-        _  -> goF (i - 1, (r, c - 1)) i'
-      | otherwise = (i, (r, c))
+        ('\t', _) -> work (i + 1, (r, c + ebTabWidth eb)) ixs
+        ('\n', _) -> work (i + 1, (r + 1, c)) ixs
+        ('\r', _) -> work (i + 1, (r, c)) ixs
+        (_, ix)   -> if i + ix > i'
+          then (i', (r, c)) : work entry ixs'
+          else work (i + ix, (r, c + 1)) ixs
+      | i == i'   = entry : work entry ixs'
+      | otherwise = __UNREACHABLE__ $ work (0, (1, 1)) ixs
     showSpan ((r, c), (r', c'))
       | r == r' && c == c' = T.concat [ "Syntax error at row ", pack $ show r
                                       , " col ", pack $ show c]

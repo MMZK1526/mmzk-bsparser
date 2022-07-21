@@ -87,7 +87,7 @@ neg p = do
     Right _  -> do
       ps      <- getState
       (i, ch) <- lookAhead $ withLen anyChar
-      throw . ErrSpan (parseIndex ps) i
+      throw . ErrSpan (parseIndex ps, parseIndex ps + i - 1)
             $ BasicErr (UItem Nothing (Just $ CToken ch)) M.empty []
 {-# INLINE neg #-}
 
@@ -101,7 +101,7 @@ eof = do
       _       -> pure ()
     Right (i, ch) -> do
       ps <- getState
-      throw . ErrSpan (parseIndex ps) i
+      throw . ErrSpan (parseIndex ps, parseIndex ps + i - 1)
             $ BasicErr (UItem Nothing (Just $ CToken ch))
                        (M.singleton Nothing (S.singleton EOI)) []
 {-# INLINE eof #-}
