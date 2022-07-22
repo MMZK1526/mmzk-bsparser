@@ -14,6 +14,7 @@ import           Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 import           Data.Map (Map)
 import qualified Data.Map as M
+import           Data.Maybe
 import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Text (Text)
@@ -83,7 +84,7 @@ instance Monad m => A.Alternative (BSParserT e m) where
   f <|> g = BSParserT $ \ps -> do
     (ma, psF) <- runParserT f ps
     case ma of
-      Left errF -> if pruneIndex psF > parseIndex ps
+      Left errF -> if parseIndex psF /= parseIndex ps && pruneIndex psF >= parseIndex ps
         then pure (Left errF, psF)
         else do
           (mb, psG) <- runParserT g ps
@@ -306,15 +307,30 @@ many :: Monad m => BSParserT e m a -> BSParserT e m [a]
 many = A.many
 {-# INLINE many #-}
 
+-- | Similar to "many", but concatenates the result.
+manyS :: Monad m => Monoid a => BSParserT e m a -> BSParserT e m a
+manyS = fmap mconcat . many
+{-# INLINE manyS #-}
+
 -- | Use the "BSParserT" one or more times.
 some :: Monad m => BSParserT e m a -> BSParserT e m [a]
 some = A.some
 {-# INLINE some #-}
 
+-- | Similar to "some", but concatenates the result.
+someS :: Monad m => Monoid a => BSParserT e m a -> BSParserT e m a
+someS = fmap mconcat . many
+{-# INLINE someS #-}
+
 -- | Parse zero or one occurrence of the content.
 optional :: Monad m => BSParserT e m a -> BSParserT e m (Maybe a)
 optional = A.optional
 {-# INLINE optional #-}
+
+-- | Similar to "optional", but concatenates the result.
+optionalS :: Monad m => Monoid a => BSParserT e m a -> BSParserT e m a
+optionalS = fmap (fromMaybe mempty) . optional
+{-# INLINE optionalS #-}
 
 -- | Parse the content between m (inclusive) and n (exclusive) times. If n <= m,
 -- returns an empty list.
@@ -331,16 +347,34 @@ range m n p = go m
                             Nothing -> pure []
                             Just a  -> (a :) <$> og (d - 1)
 
+-- | Similar to "range", but concatenates the result.
+rangeS :: Monad m => Monoid a
+       => Int -> Int -> BSParserT e m a -> BSParserT e m a
+rangeS = ((fmap mconcat .) .) . range
+{-# INLINE rangeS #-}
+
 -- | Parse a list of contents separated by a separator.
 sepBy :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepBy ps pa = sepBy1 ps pa <|> pure []
 {-# INLINE sepBy #-}
+
+-- | Similar to "sepBy", but concatenates the result.
+sepByS :: Monad m => Monoid a
+       => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
+sepByS = (fmap mconcat . ) . sepBy
+{-# INLINE sepByS #-}
 
 -- | Parse a list of contents separated by a separator where the latter can
 -- optionally appear at the end.
 sepEndBy :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepEndBy ps pa = sepBy ps pa <* optional ps
 {-# INLINE sepEndBy #-}
+
+-- | Similar to "sepEndBy", but concatenates the result.
+sepEndByS :: Monad m => Monoid a
+          => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
+sepEndByS = (fmap mconcat . ) . sepEndBy
+{-# INLINE sepEndByS #-}
 
 -- | Parse a non-empty list of contents separated by a separator.
 sepBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
@@ -353,6 +387,18 @@ sepEndBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepEndBy1 ps pa = sepBy1 ps pa <* optional ps
 {-# INLINE sepEndBy1 #-}
 
+-- | Similar to "sepBy1", but concatenates the result.
+sepBy1S :: Monad m => Monoid a
+        => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
+sepBy1S = (fmap mconcat . ) . sepBy1
+{-# INLINE sepBy1S #-}
+
+-- | Similar to "sepEndBy1", but concatenates the result.
+sepEndBy1S :: Monad m => Monoid a
+           => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
+sepEndBy1S = (fmap mconcat . ) . sepEndBy1
+{-# INLINE sepEndBy1S #-}
+
 -- | Use the "BSParserT" and map the result by the given function. Fails if it
 -- returns Nothing.
 pmap :: Monad m => (b -> Maybe a) -> BSParserT e m b -> BSParserT e m a
@@ -362,9 +408,10 @@ pmap f p = p >>= maybe empty pure . f
 -- | Set the expected labels for the "BSParserT".
 -- If the expected labels are already set by this operator or (<??>), the old
 -- labels will be overwritten.
-(<?>) :: Monad m => BSParserT e m a -> [Text] -> BSParserT e m a
+(<?>) :: Monad m => TextLike t => BSParserT e m a -> [t] -> BSParserT e m a
 p <?> ls
-  = touch id (const $ M.fromList . zip (Just <$> ls) $ repeat S.empty) id p
+  = touch id (const $ M.fromList . zip (Just . toText <$> ls) $ repeat S.empty)
+          id p
 {-# INLINE (<?>) #-}
 
 -- | Set all expected elements for "BSParserT".

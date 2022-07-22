@@ -4,7 +4,8 @@ module MMZK.BSParser
   , some, parens, setAllowBadCP, flush, (<&>), charToken, lexer, setSpaceParser
   , range, sepBy, sepBy1, sepEndBy, sepEndBy1, ParseState(..), ErrSpan, (<?>)
   , inspect, withLen, renderErrBundle, renderErrBundleAsStr, (<??>), prune
-  , withPrune, setTabWidth ) where
+  , withPrune, setTabWidth, manyS, someS, optionalS, rangeS, sepByS, sepEndByS
+  , sepBy1S, sepEndBy1S ) where
 
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Error
