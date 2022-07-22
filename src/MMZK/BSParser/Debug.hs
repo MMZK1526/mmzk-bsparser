@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP  #-}
 
-module MMZK.BSParser.Debug (__ASSERT__, __UNREACHABLE__) where
+module MMZK.BSParser.Debug (__ASSERT__, __UNREACHABLE__, trace) where
+
+import           Debug.Trace
 
 #define __POS__ (++ (__FILE__ ++ ": line " ++ show (__LINE__ :: Integer)))
 

@@ -20,7 +20,6 @@ import           Data.Text (Text, pack, unpack)
 import qualified Data.Text as T
 import           Data.Void
 import           MMZK.BSParser.Debug
-import           MMZK.BSParser.Convert
 
 -- | A class similar to "Show", but returns a "Text". It is used to provide an
 -- alternative "pretty-print".
@@ -41,8 +40,8 @@ data Token = CToken Char | SToken ByteString | EOI
   deriving (Eq, Ord, Show)
 
 instance PP Token where
-  pp (CToken ch)  = T.concat ["'", T.singleton ch, "'"]
-  pp (SToken str) = T.concat ["\"", fromByteString str, "\""]
+  pp (CToken ch)  = pack $ show ch
+  pp (SToken str) = pack $ show str
   pp EOI          = bilEOF defaultBuiltInLabels
 
 -- | A "Token" with an optional label used to describe an unexpected token
@@ -95,16 +94,19 @@ instance PP e => PP (PError e) where
       go [tk]        = tk
       go [tk, tk']   = tk <> " or " <> tk'
       go (tk : tks') = tk <> ", " <> go tks'
-      go1 = case pp $ unexpected err of
+      go1            = case pp $ unexpected err of
         ""  -> ""
         str -> "  Unexpected " <> str <> "."
-      go2 = case filter (not . T.null) . fmap (pp . uncurry EItem)
-                                       $ M.toList (expecting err) of
+      go2            = case filter (not . T.null) . concatMap work
+                                       $ M.toAscList (expecting err) of
         []   -> ""
         txts -> "\n  Expecting " <> go txts <> "."
-      go3 = case errMessages err of
+      go3            = case errMessages err of
         []   -> ""
         txts -> "\n  " <> T.intercalate "  \n" (pp <$> txts)
+      work (mL, t)    = case mL of
+        Nothing -> pp . EItem Nothing . S.singleton <$> S.toList t
+        Just _  -> [pp $ EItem mL t]
   pp _               = "  Invalid UTF-8 codepoint."
 
 -- ｜ A "PError" together with the location information.
