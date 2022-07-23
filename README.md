@@ -364,7 +364,7 @@ In this tutorial, we utilised some of the basic built-in combinators to implemen
 In fact, there are a few more things we can doregarding the Wordlist example, but since is already quite long, we will split them into a separate one in the section below.
 
 ## Examples
-TODO
+See [EXAMPLES](EXAMPLES.md).
 
 ## Documentation
 TODO
