@@ -40,9 +40,17 @@ In this section, we will install the library to a new `cabal` workspace.
 In the [quickstart](#quickstart) below and each of the [examples](#Examples), we will assume an empty playground as above and work from there.
 
 ## Quickstart
-In this example, we will make a very simple parser that takes a "Wordlist" separated by commas and produces a list of words. For example, the input "apple, banana, cherry" would be parsed into the list `["apple", "banana", "cherry"]`. This is a very simple functionality that can be easily implemented without any kind of parser combinators, but it is nevertheless an easy example to demonstrate how those combinators work. We will introduce more complicated examples in the [next section](#examples).  
+In this example, we will make a very simple parser that takes a "Wordlist" separated by commas and produces a list of words. For example, the input "apple, banana, cherry" would be parsed into the list `["apple", "banana", "cherry"]`. This is a very simple functionality that can be easily implemented without any kind of parser combinators, but it is nevertheless an easy example to demonstrate how those combinators work. We will introduce more complicated examples in the [next section](#examples).
 
-To follow this example, make sure that the ["playground" workspace](#installation) is ready. The full example is also available [here](examples/wordlist).   
+To follow this example, make sure that the ["playground" workspace](#installation) is ready. The full example is also available [here](examples/wordlist).
+
+### Covered Topics
+* Run parsers and show the results or error messages
+* Use basic lexers to parse a single given character
+* Use basic lexers to parse a single letter
+* Use combinators such as `some`, `sepBy`, and `choice` to build more complicated parsers
+* Use `prune` to avoid excessive backtracking and pin-point error locations
+* Ignore meaningless spaces
 
 ### First Attempt
 In "app/Main.hs", replace the existing code with the following:
