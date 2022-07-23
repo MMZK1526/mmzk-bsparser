@@ -206,9 +206,9 @@ renderErrBundle eb = T.concat $ showError <$> ebErrors eb
 -- | Pretty-print the errors in the "ErrBundle" as a "String".
 renderErrBundleAsStr :: PP e => ErrBundle e -> String
 renderErrBundleAsStr = unpack . renderErrBundle
-{-# INLINE renderErrBundleAsStr #-}
+{-# INLINE [2] renderErrBundleAsStr #-}
 
 -- | The empty "PError".
 nil :: PError e
 nil = BasicErr (UItem Nothing Nothing) M.empty []
-{-# INLINE nil #-}
+{-# INLINE [2] nil #-}

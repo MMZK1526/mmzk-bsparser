@@ -43,19 +43,19 @@ instance Ord (ParseState e m) where
 
 incPS :: ParseState e m -> ParseState e m
 incPS = addPS 1
-{-# INLINE incPS #-}
+{-# INLINE [2] incPS #-}
 
 addPS :: Int -> ParseState e m -> ParseState e m
 addPS n ps = ps { parseIndex = parseIndex ps + n }
-{-# INLINE addPS #-}
+{-# INLINE [2] addPS #-}
 
 headPS :: ParseState e m -> Maybe Word8
 headPS ps = BS.indexMaybe (parseStr ps) (parseIndex ps)
-{-# INLINE headPS #-}
+{-# INLINE [2] headPS #-}
 
 firstNPS :: Int -> ParseState e m -> ByteString
 firstNPS n ps = BS.take n $ BS.drop (parseIndex ps) (parseStr ps)
-{-# INLINE firstNPS #-}
+{-# INLINE [2] firstNPS #-}
 
 newtype BSParserT e m a
   = BSParserT { runParserT :: ParseState e m
@@ -84,7 +84,8 @@ instance Monad m => A.Alternative (BSParserT e m) where
   f <|> g = BSParserT $ \ps -> do
     (ma, psF) <- runParserT f ps
     case ma of
-      Left errF -> if parseIndex psF /= parseIndex ps && pruneIndex psF >= parseIndex ps
+      Left errF -> if parseIndex psF /= parseIndex ps
+                   && pruneIndex psF >= parseIndex ps
         then pure (Left errF, psF)
         else do
           (mb, psG) <- runParserT g ps
@@ -129,38 +130,38 @@ parseT parser str = do
                            , errorLocs   = IS.empty
                            , tabWidth    = 4
                            , pruneIndex  = 0 }
-{-# INLINE parseT #-}
+{-# INLINE [2] parseT #-}
 
 parse :: ByteStringLike s => BSParser e a -> s -> Either (ErrBundle e) a
 parse = (runIdentity .) . parseT
-{-# INLINE parse #-}
+{-# INLINE [2] parse #-}
 
 
 --------------------------------------------------------------------------------
--- Primitive Combinators
+-- ParseState Interactions
 --------------------------------------------------------------------------------
 
 -- | Get the current "ParseState".
 getState :: Monad m => BSParserT e m (ParseState e m)
 getState = BSParserT $ \ps -> pure (Right ps, ps)
-{-# INLINE getState #-}
+{-# INLINE [2] getState #-}
 
 -- | Set whether bad codepoints are allowed.
 setAllowBadCP :: Monad m => Bool -> BSParserT e m ()
 setAllowBadCP val = BSParserT $ \ps -> pure (Right (), ps { allowBadCP = val })
-{-# INLINE setAllowBadCP #-}
+{-# INLINE [2] setAllowBadCP #-}
 
 -- | Set the "BSParserT" used to consume extra spaces.
 setSpaceParser :: Monad m => BSParserT e m a -> BSParserT e m ()
 setSpaceParser p = BSParserT
                  $ \ps -> pure (Right (), ps { spaceParser = void p })
-{-# INLINE setSpaceParser #-}
+{-# INLINE [2] setSpaceParser #-}
 
 -- | Set the "pruneIndex" to "parseIndex", stopping backtrack beyond the current
 -- index.
 prune :: Monad m => BSParserT e m ()
 prune = BSParserT $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps })
-{-# INLINE prune #-}
+{-# INLINE [2] prune #-}
 
 -- | Use "prune" within the given "BSParserT". If the latter succeeds, restore
 -- the "pruneIndex".
@@ -170,31 +171,36 @@ withPrune p = BSParserT $ \ps -> do
   return . (r ,) $ case r of
     Left _  -> ps'
     Right _ -> ps' { pruneIndex = pruneIndex ps }
-{-# INLINE withPrune #-}
+{-# INLINE [2] withPrune #-}
 
 -- | Set the tab width for the parser. The tab width will affect the column
 -- number of the characters in the input stream.
--- It must be at least 1. If it is less than 1, the value will be ignored.
+-- It must be at least one, otherwise the value will be ignored.
 setTabWidth :: Monad m => Int -> BSParserT e m ()
 setTabWidth w = BSParserT $ \ps -> pure (Right (), ps { tabWidth = w })
-{-# INLINE setTabWidth #-}
+{-# INLINE [2] setTabWidth #-}
+
+
+--------------------------------------------------------------------------------
+-- Primitive Combinators
+--------------------------------------------------------------------------------
 
 -- | Get the parse result as well as the error of the "BSParserT".
 inspect :: Monad m => BSParserT e m a -> BSParserT e m (Either (ErrSpan e) a)
 inspect p = BSParserT $ fmap (first Right) . runParserT p
-{-# INLINE inspect #-}
+{-# INLINE [2] inspect #-}
 
 -- | Also return the number of tokens ("Word8") consumed by the "BSParserT".
 withLen :: Monad m => BSParserT e m a -> BSParserT e m (Int, a)
 withLen p = BSParserT $ \ps -> do
   (r, ps') <- runParserT p ps
   pure ((parseIndex ps' - parseIndex ps ,) <$> r, ps')
-{-# INLINE withLen #-}
+{-# INLINE [2] withLen #-}
 
 -- | Throw an "ErrSpan".
 throw :: Monad m => ErrSpan e -> BSParserT e m a
 throw err = BSParserT $ \ps -> pure (Left err, ps)
-{-# INLINE throw #-}
+{-# INLINE [2] throw #-}
 
 -- | Flush the remaining unprocessed bits in the current token ("Word8"). If the
 -- input "ByteString" contains both binary and UTF-8, call this function
@@ -204,7 +210,7 @@ flush :: Monad m => BSParserT e m Int
 flush = BSParserT $ \ps -> pure $ case bitOffset ps of
   0 -> (Right 0, ps)
   n -> (Right (8 - n), incPS ps)
-{-# INLINE flush #-}
+{-# INLINE [2] flush #-}
 
 -- | Parse one token ("Word8") using the predicate function. If the predicate
 -- returns "Nothing", fail the "BSParserT".
@@ -262,7 +268,7 @@ charToken f = BSParserT $ \ps -> do
 -- modify any state.
 lookAhead :: Monad m => BSParserT e m a -> BSParserT e m a
 lookAhead p = BSParserT $ \ps -> (, ps) . fst <$> runParserT p ps
-{-# INLINE lookAhead #-}
+{-# INLINE [2] lookAhead #-}
 
 
 --------------------------------------------------------------------------------
@@ -272,7 +278,7 @@ lookAhead p = BSParserT $ \ps -> (, ps) . fst <$> runParserT p ps
 -- | A "BSParserT" that fails instantly.
 empty :: Monad m => BSParserT e m a
 empty = A.empty
-{-# INLINE empty #-}
+{-# INLINE [2] empty #-}
 
 -- | Try the first "BSParserT". If it fails, use the second one. When both
 -- fails, if the errors occur at the same place, merge the errors; otherwise
@@ -280,7 +286,7 @@ empty = A.empty
 (<|>) :: Monad m => BSParserT e m a -> BSParserT e m a -> BSParserT e m a
 (<|>) = (A.<|>)
 infixl 3 <|>
-{-# INLINE (<|>) #-}
+{-# INLINE [2] (<|>) #-}
 
 -- | Attempt all "BSParserT"s in the list without consuming the input, if it
 -- succeeds, use the "BSParserT" from the first argument. This operator acts as
@@ -288,49 +294,49 @@ infixl 3 <|>
 (<&>) :: Monad m => BSParserT e m a -> [BSParserT e m b] -> BSParserT e m a
 p <&> pcs = mapM_ lookAhead pcs >> p
 infixl 2 <&>
-{-# INLINE (<&>) #-}
+{-# INLINE [2] (<&>) #-}
 
 -- | Try all "BSParserT"s until one of them parses successfully.
 choice :: Monad m => [BSParserT e m a] -> BSParserT e m a
 choice = msum
-{-# INLINE choice #-}
+{-# INLINE [2] choice #-}
 
 -- | Parse for left paren, content, and right paren, returning only the content.
 parens :: Monad m
        => BSParserT e m o -> BSParserT e m c -> BSParserT e m a
        -> BSParserT e m a
 parens po pc pa = po >> pa <* pc
-{-# INLINE parens #-}
+{-# INLINE [2] parens #-}
 
 -- | Use the "BSParserT" zero, one, or more times.
 many :: Monad m => BSParserT e m a -> BSParserT e m [a]
 many = A.many
-{-# INLINE many #-}
+{-# INLINE [2] many #-}
 
 -- | Similar to "many", but concatenates the result.
 manyS :: Monad m => Monoid a => BSParserT e m a -> BSParserT e m a
 manyS = fmap mconcat . many
-{-# INLINE manyS #-}
+{-# INLINE [2] manyS #-}
 
 -- | Use the "BSParserT" one or more times.
 some :: Monad m => BSParserT e m a -> BSParserT e m [a]
 some = A.some
-{-# INLINE some #-}
+{-# INLINE [2] some #-}
 
 -- | Similar to "some", but concatenates the result.
 someS :: Monad m => Monoid a => BSParserT e m a -> BSParserT e m a
 someS = fmap mconcat . many
-{-# INLINE someS #-}
+{-# INLINE [2] someS #-}
 
 -- | Parse zero or one occurrence of the content.
 optional :: Monad m => BSParserT e m a -> BSParserT e m (Maybe a)
 optional = A.optional
-{-# INLINE optional #-}
+{-# INLINE [2] optional #-}
 
 -- | Similar to "optional", but concatenates the result.
 optionalS :: Monad m => Monoid a => BSParserT e m a -> BSParserT e m a
 optionalS = fmap (fromMaybe mempty) . optional
-{-# INLINE optionalS #-}
+{-# INLINE [2] optionalS #-}
 
 -- | Parse the content between m (inclusive) and n (exclusive) times. If n <= m,
 -- returns an empty list.
@@ -351,59 +357,59 @@ range m n p = go m
 rangeS :: Monad m => Monoid a
        => Int -> Int -> BSParserT e m a -> BSParserT e m a
 rangeS = ((fmap mconcat .) .) . range
-{-# INLINE rangeS #-}
+{-# INLINE [2] rangeS #-}
 
 -- | Parse a list of contents separated by a separator.
 sepBy :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepBy ps pa = sepBy1 ps pa <|> pure []
-{-# INLINE sepBy #-}
+{-# INLINE [2] sepBy #-}
 
 -- | Similar to "sepBy", but concatenates the result.
 sepByS :: Monad m => Monoid a
        => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
 sepByS = (fmap mconcat . ) . sepBy
-{-# INLINE sepByS #-}
+{-# INLINE [2] sepByS #-}
 
 -- | Parse a list of contents separated by a separator where the latter can
 -- optionally appear at the end.
 sepEndBy :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepEndBy ps pa = sepBy ps pa <* optional ps
-{-# INLINE sepEndBy #-}
+{-# INLINE [2] sepEndBy #-}
 
 -- | Similar to "sepEndBy", but concatenates the result.
 sepEndByS :: Monad m => Monoid a
           => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
 sepEndByS = (fmap mconcat . ) . sepEndBy
-{-# INLINE sepEndByS #-}
+{-# INLINE [2] sepEndByS #-}
 
 -- | Parse a non-empty list of contents separated by a separator.
 sepBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepBy1 ps pa = liftM2 (:) pa (many (ps >> pa))
-{-# INLINE sepBy1 #-}
+{-# INLINE [2] sepBy1 #-}
 
 -- | Parse a non-empty list of contents separated by a separator where the
 -- latter can optionally appear at the end.
 sepEndBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepEndBy1 ps pa = sepBy1 ps pa <* optional ps
-{-# INLINE sepEndBy1 #-}
+{-# INLINE [2] sepEndBy1 #-}
 
 -- | Similar to "sepBy1", but concatenates the result.
 sepBy1S :: Monad m => Monoid a
         => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
 sepBy1S = (fmap mconcat . ) . sepBy1
-{-# INLINE sepBy1S #-}
+{-# INLINE [2] sepBy1S #-}
 
 -- | Similar to "sepEndBy1", but concatenates the result.
 sepEndBy1S :: Monad m => Monoid a
            => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
 sepEndBy1S = (fmap mconcat . ) . sepEndBy1
-{-# INLINE sepEndBy1S #-}
+{-# INLINE [2] sepEndBy1S #-}
 
 -- | Use the "BSParserT" and map the result by the given function. Fails if it
 -- returns Nothing.
 pmap :: Monad m => (b -> Maybe a) -> BSParserT e m b -> BSParserT e m a
 pmap f p = p >>= maybe empty pure . f
-{-# INLINE pmap #-}
+{-# INLINE [2] pmap #-}
 
 -- | Set the expected labels for the "BSParserT".
 -- If the expected labels are already set by this operator or (<??>), the old
@@ -412,7 +418,7 @@ pmap f p = p >>= maybe empty pure . f
 p <?> ls
   = touch id (const $ M.fromList . zip (Just . toText <$> ls) $ repeat S.empty)
           id p
-{-# INLINE (<?>) #-}
+{-# INLINE [2] (<?>) #-}
 
 -- | Set all expected elements for "BSParserT".
 -- If the expected labels are already set by this operator or (<?>), the old
@@ -420,7 +426,7 @@ p <?> ls
 (<??>) :: Monad m
        => BSParserT e m a -> Map (Maybe Text) (Set Token) -> BSParserT e m a
 p <??> es = touch id (const es) id p
-{-# INLINE (<??>) #-}
+{-# INLINE [2] (<??>) #-}
 
 -- | Modify the error thrown by the "BSParserT" by changing its unexpected
 -- token, expected tokens, and the custom message.
@@ -441,4 +447,4 @@ touch uf esf msgsf p = do
       BasicErr u es msgs -> err'
         where
           err' = err { esError = BasicErr (uf u) (esf es) (msgsf msgs) }
-{-# INLINE touch #-}
+{-# INLINE [2] touch #-}

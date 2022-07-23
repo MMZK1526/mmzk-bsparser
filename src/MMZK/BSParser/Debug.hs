@@ -12,7 +12,7 @@ __UNREACHABLE__ = error . __POS__ $ "Assertion Error: Unreachable!\n"
 #else
 __UNREACHABLE__ = id
 #endif
-{-# INLINE __UNREACHABLE__ #-}
+{-# INLINE [2] __UNREACHABLE__ #-}
 
 __ASSERT__ :: Bool -> a -> a
 #ifdef ASSERTS
@@ -21,4 +21,4 @@ __ASSERT__ False = error . __POS__ $ "Assertion Error: Assertion failed!\n"
 #else
 __ASSERT__ = const id
 #endif
-{-# INLINE __ASSERT__ #-}
+{-# INLINE [2] __ASSERT__ #-}
