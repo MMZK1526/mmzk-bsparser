@@ -1,12 +1,21 @@
 -- Parser combinators in CPS style.
 
-module MMZK.BSParser.CPS (cons, many, some, manyS, someS) where
+module MMZK.BSParser.CPS
+  ( cons, many, some, manyS, someS, digitsStr, hexDigitsStr, octDigitsStr
+  , binDigitsStr ) where
 
 import           Control.Monad
 import           Control.Applicative (Alternative, liftA2, (<|>))
+import qualified MMZK.BSParser.Lexer as L
 import           MMZK.BSParser.Parser (BSParserT)
 import qualified MMZK.BSParser.Parser as P
 
+
+--------------------------------------------------------------------------------
+-- Combinators
+--------------------------------------------------------------------------------
+
+-- | Parse with the first argument followed by the second argument.
 cons :: Alternative t => Foldable t => Monad m
      => BSParserT e m a -> BSParserT e m (t a) -> BSParserT e m (t a)
 cons = liftA2 ((<|>) . pure)
@@ -53,3 +62,28 @@ manyL p q = msum [liftA2 (:) p (P.prune >> many p q), q]
 
 someL :: Monad m => BSParserT e m a -> BSParserT e m [a] -> BSParserT e m [a]
 someL p q = liftA2 (:) p $ msum [liftA2 (:) p (P.prune >> many p q), q]
+
+
+--------------------------------------------------------------------------------
+-- String
+--------------------------------------------------------------------------------
+
+-- | Parse a string of (unsigned) digits.
+digitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
+digitsStr = some L.digit
+{-# INLINE [2] digitsStr #-}
+
+-- | Parse a string of (unsigned) hex digits.
+hexDigitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
+hexDigitsStr = some L.hexDigit
+{-# INLINE [2] hexDigitsStr #-}
+
+-- | Parse a string of (unsigned) oct digits.
+octDigitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
+octDigitsStr = some L.octDigit
+{-# INLINE [2] octDigitsStr #-}
+
+-- | Parse a string of (unsigned) bin digits.
+binDigitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
+binDigitsStr = some L.binDigit
+{-# INLINE [2] binDigitsStr #-}
