@@ -315,7 +315,7 @@ many = A.many
 
 -- | Similar to "many", but concatenates the result.
 manyS :: Monad m => Monoid a => BSParserT e m a -> BSParserT e m a
-manyS = fmap mconcat . many
+manyS = fmap mconcat . A.many
 {-# INLINE [2] manyS #-}
 
 -- | Use the "BSParserT" one or more times.
@@ -325,7 +325,7 @@ some = A.some
 
 -- | Similar to "some", but concatenates the result.
 someS :: Monad m => Monoid a => BSParserT e m a -> BSParserT e m a
-someS = fmap mconcat . many
+someS = fmap mconcat . A.some
 {-# INLINE [2] someS #-}
 
 -- | Parse zero or one occurrence of the content.
@@ -361,7 +361,7 @@ rangeS = ((fmap mconcat .) .) . range
 
 -- | Parse a list of contents separated by a separator.
 sepBy :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
-sepBy ps pa = sepBy1 ps pa <|> pure []
+sepBy ps pa = sepBy1 ps pa A.<|> pure []
 {-# INLINE [2] sepBy #-}
 
 -- | Similar to "sepBy", but concatenates the result.
@@ -384,7 +384,7 @@ sepEndByS = (fmap mconcat . ) . sepEndBy
 
 -- | Parse a non-empty list of contents separated by a separator.
 sepBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
-sepBy1 ps pa = liftM2 (:) pa (many (ps >> pa))
+sepBy1 ps pa = liftM2 (:) pa (A.many (ps >> pa))
 {-# INLINE [2] sepBy1 #-}
 
 -- | Parse a non-empty list of contents separated by a separator where the

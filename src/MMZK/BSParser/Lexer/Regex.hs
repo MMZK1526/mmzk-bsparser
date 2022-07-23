@@ -1,5 +1,6 @@
 module MMZK.BSParser.Lexer.Regex where
 
+import           Control.Monad
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.Maybe
@@ -26,6 +27,6 @@ regexParser (Many regex)       = BS.concat <$> many (regexParser regex)
 regexParser (Some regex)       = BS.concat <$> some (regexParser regex)
 regexParser (Optional regex)   = fromMaybe BS.empty
                              <$> optional (regexParser regex)
-regexParser (Choice regexes)   = choice $ regexParser <$> regexes
+regexParser (Choice regexes)   = msum $ regexParser <$> regexes
 regexParser (Sequence regexes) = BS.concat <$> mapM regexParser regexes
 regexParser AnyChar            = toByteString . (: []) <$> L.anyChar
