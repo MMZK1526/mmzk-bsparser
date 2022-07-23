@@ -12,6 +12,12 @@ import           Data.Text (Text)
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Error
 import           MMZK.BSParser.Parser
+import qualified MMZK.BSParser.Word8 as P8
+
+
+--------------------------------------------------------------------------------
+-- Combinators
+--------------------------------------------------------------------------------
 
 -- | Use the "BSParserT", then consume the spaces that follows. Spaces are
 -- defined by "spaceParser" of "ParseState", which is by default @pure ()@.
@@ -53,6 +59,26 @@ string = fmap fromByteString . byteString
 text :: Monad m => ByteStringLike s => s -> BSParserT e m Text
 text = fmap fromByteString . byteString
 {-# INLINE [2] text #-}
+
+-- | Parse a string of (unsigned) digits. The result is a "String".
+digitsStr :: Monad m => BSParserT e m String
+digitsStr = some digit
+{-# INLINE [2] digitsStr #-}
+
+-- | Parse a string of (unsigned) hex digits. The result is a "String".
+hexDigitsStr :: Monad m => BSParserT e m String
+hexDigitsStr = some hexDigit
+{-# INLINE [2] hexDigitsStr #-}
+
+-- | Parse a string of (unsigned) oct digits. The result is a "String".
+octDigitsStr :: Monad m => BSParserT e m String
+octDigitsStr = some octDigit
+{-# INLINE [2] octDigitsStr #-}
+
+-- | Parse a string of (unsigned) bin digits. The result is a "String".
+binDigitsStr :: Monad m => BSParserT e m String
+binDigitsStr = some binDigit
+{-# INLINE [2] binDigitsStr #-}
 
 
 --------------------------------------------------------------------------------
@@ -192,3 +218,32 @@ lower = satisfy isLower <?> [bilLower defaultBuiltInLabels]
 upper :: Monad m => BSParserT e m Char
 upper = satisfy isUpper <?> [bilUpper defaultBuiltInLabels]
 {-# INLINE [2] upper #-}
+
+
+--------------------------------------------------------------------------------
+-- Number
+--------------------------------------------------------------------------------
+
+-- | Parse a string of (unsigned) digits.
+digits :: Num a => Monad m => BSParserT e m a
+digits = foldl' ((+) . (* 10)) 0
+       . fmap (fromIntegral . (+ 208)) <$> some P8.digit
+{-# INLINE [2] digits #-}
+
+-- | Parse a string of (unsigned) digits.
+hexDigits :: Num a => Monad m => BSParserT e m a
+hexDigits = foldl' ((+) . (* 16)) 0
+          . fmap (fromIntegral . digitToInt) <$> some digit
+{-# INLINE [2] hexDigits #-}
+
+-- | Parse a string of (unsigned) digits.
+octDigits :: Num a => Monad m => BSParserT e m a
+octDigits = foldl' ((+) . (* 8)) 0
+          . fmap (fromIntegral . (+ 208)) <$> some P8.digit
+{-# INLINE [2] octDigits #-}
+
+-- | Parse a string of (unsigned) digits.
+binDigits :: Num a => Monad m => BSParserT e m a
+binDigits = foldl' ((+) . (* 2)) 0
+          . fmap (fromIntegral . (+ 208)) <$> some P8.digit
+{-# INLINE [2] binDigits #-}

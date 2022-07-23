@@ -42,7 +42,7 @@ In the [quickstart](#quickstart) below and each of the [examples](#Examples), we
 ## Quickstart
 In this example, we will make a very simple parser that takes a "Wordlist" separated by commas and produces a list of words. For example, the input "apple, banana, cherry" would be parsed into the list `["apple", "banana", "cherry"]`. This is a very simple functionality that can be easily implemented without any kind of parser combinators, but it is nevertheless an easy example to demonstrate how those combinators work. We will introduce more complicated examples in the [next section](#examples).  
 
-To follow this example, make sure that the ["playground" workspace](#installation) is ready.  
+To follow this example, make sure that the ["playground" workspace](#installation) is ready. The full example is also available [here](examples/wordlist).   
 
 ### First Attempt
 In "app/Main.hs", replace the existing code with the following:
@@ -143,9 +143,7 @@ The last test shows how the parser will react when `wordParser` detects unexpect
 
 The reason behind such a phenomenon is that our parser eagerly backtracks by default, in contrast to most parser combinator libraries which do not backtrack at all unless specified otherwise. In our example, while such design allows us to pick up the longest prefix that abides the rules of Wordlist (which is useful in many cases), it often backtracks away from the spot where the actual error is detected.
 
-
 ### Pruning
-
 To prevent this and pin-point the error Ground Zero, we may use the function `prune`, which prevents the parser to backtrack before the current location. We may redefine the `wordListParser` as following:
 
 ```Haskell
@@ -352,10 +350,10 @@ Syntax error at row 1 col 8:
   Expecting ascii letter.
 ```
 
-The full example can be found [here](examples/wordlist).
-
 ### Conclusion
 In this tutorial, we utilised some of the basic built-in combinators to implement a simple Wordlist parser. Of course, this is just the tip of the iceberg. In the following sections, we will introduce recursive descent, error handling & recovery, binary stream parsing, and combination with the `State` and `IO` monads. It will be enough to build a decent parser for a fairly complicated grammar!
+
+In fact, there are a few more things we can doregarding the Wordlist example, but since is already quite long, we will split them into a separate one in the section below.
 
 ## Examples
 TODO
