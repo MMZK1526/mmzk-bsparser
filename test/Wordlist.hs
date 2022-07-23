@@ -1,4 +1,5 @@
 import           MMZK.BSParser
+import qualified MMZK.BSParser.CPS as CPS
 import qualified MMZK.BSParser.ASCII as PA
 import           Data.Either
 import           Test.HUnit
@@ -89,5 +90,9 @@ wordlistParser3 :: Parser [String]
 wordlistParser3 = do
   setSpaceParser (many PA.space32)
   lexer $ pure () -- Parse leading spaces
-  sepBy (lexer $ PA.char ',') 
-        (lexer $ some (choice [PA.alpha, PA.char '-', PA.char '\'']))
+  sepBy (lexer $ PA.char ',') (prune >> lexer wordParser)
+  where
+    wordParser = ( CPS.some PA.alpha
+                 . CPS.manyS ( (prune >>)
+                             . CPS.cons (choice [PA.char '-', PA.char '\''])
+                             . CPS.some PA.alpha ) ) (pure [])
