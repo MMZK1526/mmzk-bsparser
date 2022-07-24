@@ -1,5 +1,6 @@
 import           Data.Char
 import           MMZK.BSParser
+import qualified MMZK.BSParser.CPS as CPS
 import qualified MMZK.BSParser.Lexer as L
 
 -- | A basic parser type that uses "String" as the custom error type.
@@ -15,15 +16,10 @@ letterParser :: Parser Char
 letterParser = L.satisfy (\ch -> isAlpha ch && isAscii ch) <?> ["ascii letter"]
 
 wordParser :: Parser String
-wordParser = do
-  pureLetters  <- some letterParser
-  symbolGroups <- manyS (prune >> groupParser)
-  return $ pureLetters ++ symbolGroups
+wordParser = CPS.some letterParser ((CPS.manyS (\p -> prune >> groupParser p)) (pure []))
   where
-    groupParser = do
-      symbol  <- choice [L.char '-', L.char '\'']
-      letters <- some letterParser
-      return $ symbol : letters
+    -- Note that now groupParser is a combinator
+    groupParser p = CPS.cons (choice [L.char '-', L.char '\'']) (CPS.some letterParser p)
 
 wordlistParser :: Parser [String]
 wordlistParser = sepBy1 (lexer $ L.char ',') (prune >> lexer wordParser)
