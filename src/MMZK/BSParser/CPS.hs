@@ -2,13 +2,20 @@
 
 module MMZK.BSParser.CPS
   ( cons, many, some, manyS, someS, digitsStr, hexDigitsStr, octDigitsStr
-  , binDigitsStr ) where
+  , binDigitsStr, string ) where
 
 import           Control.Monad
 import           Control.Applicative (Alternative, liftA2, (<|>))
+import           MMZK.BSParser.Convert
 import qualified MMZK.BSParser.Lexer as L
 import           MMZK.BSParser.Parser (BSParserT)
 
+
+manyL :: Monad m => BSParserT e m a -> BSParserT e m [a] -> BSParserT e m [a]
+manyL p q = msum [liftA2 (:) p (many p q), q]
+
+someL :: Monad m => BSParserT e m a -> BSParserT e m [a] -> BSParserT e m [a]
+someL p q = liftA2 (:) p $ msum [liftA2 (:) p (many p q), q]
 
 --------------------------------------------------------------------------------
 -- Combinators
@@ -56,16 +63,16 @@ consL :: Monad m  => BSParserT e m a -> BSParserT e m [a] -> BSParserT e m [a]
 consL = liftA2 (:)
 {-# INLINE [2] consL #-}
 
-manyL :: Monad m => BSParserT e m a -> BSParserT e m [a] -> BSParserT e m [a]
-manyL p q = msum [liftA2 (:) p (many p q), q]
-
-someL :: Monad m => BSParserT e m a -> BSParserT e m [a] -> BSParserT e m [a]
-someL p q = liftA2 (:) p $ msum [liftA2 (:) p (many p q), q]
-
-
 --------------------------------------------------------------------------------
 -- String
 --------------------------------------------------------------------------------
+
+-- | Parse the given "String".
+string :: Monad m => StringLike s
+       => s -> BSParserT e m String -> BSParserT e m String
+string str p = case toString str of
+  ""       -> p
+  ch : chs -> liftA2 (:) (L.char ch) (string chs p)
 
 -- | Parse a string of (unsigned) digits.
 digitsStr :: Monad m => BSParserT e m String -> BSParserT e m String

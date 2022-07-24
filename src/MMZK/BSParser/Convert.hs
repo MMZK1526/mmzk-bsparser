@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
--- Contains a uniform interface converting UTF-8 String and Text to ByteString.
+-- Contains interfaces for conversions between Text, ByteString and UFT-8
+-- String.
 
 module MMZK.BSParser.Convert where
 
@@ -11,6 +12,27 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TSE
 import           Data.Word
+
+class StringLike t where
+  toString   :: t -> String
+
+  fromString :: String -> t
+
+instance StringLike String where
+  toString   = id
+  fromString = id
+
+instance StringLike Text where
+  toString   = T.unpack
+  fromString = T.pack
+
+instance StringLike ByteString where
+  toString   = BSU.toString
+  fromString = BSU.fromString
+
+instance StringLike [Word8] where
+  toString   = BSU.toString . pack
+  fromString = unpack . BSU.fromString
 
 class TextLike t where
   toText :: t -> Text
