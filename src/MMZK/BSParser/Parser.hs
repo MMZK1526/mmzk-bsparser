@@ -339,10 +339,10 @@ optionalS = fmap (fromMaybe mempty) . optional
 {-# INLINE [2] optionalS #-}
 
 -- | Parse the content between m (inclusive) and n (exclusive) times. If n <= m,
--- returns an empty list.
+-- returns an error.
 range :: Monad m => Int -> Int -> BSParserT e m a -> BSParserT e m [a]
 range m n _
-  | n <= m = pure []
+  | n <= m = empty
 range m n p = go m
   where
     go i | i <= 0    = og (n - m - 1)
@@ -387,17 +387,17 @@ sepBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
 sepBy1 ps pa = liftM2 (:) pa (A.many (ps >> pa))
 {-# INLINE [2] sepBy1 #-}
 
--- | Parse a non-empty list of contents separated by a separator where the
--- latter can optionally appear at the end.
-sepEndBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
-sepEndBy1 ps pa = sepBy1 ps pa <* optional ps
-{-# INLINE [2] sepEndBy1 #-}
-
 -- | Similar to "sepBy1", but concatenates the result.
 sepBy1S :: Monad m => Monoid a
         => BSParserT e m s -> BSParserT e m a -> BSParserT e m a
 sepBy1S = (fmap mconcat . ) . sepBy1
 {-# INLINE [2] sepBy1S #-}
+
+-- | Parse a non-empty list of contents separated by a separator where the
+-- latter can optionally appear at the end.
+sepEndBy1 :: Monad m => BSParserT e m s -> BSParserT e m a -> BSParserT e m [a]
+sepEndBy1 ps pa = sepBy1 ps pa <* optional ps
+{-# INLINE [2] sepEndBy1 #-}
 
 -- | Similar to "sepEndBy1", but concatenates the result.
 sepEndBy1S :: Monad m => Monoid a
@@ -410,6 +410,11 @@ sepEndBy1S = (fmap mconcat . ) . sepEndBy1
 pmap :: Monad m => (b -> Maybe a) -> BSParserT e m b -> BSParserT e m a
 pmap f p = p >>= maybe empty pure . f
 {-# INLINE [2] pmap #-}
+
+
+--------------------------------------------------------------------------------
+-- Error Handling
+--------------------------------------------------------------------------------
 
 -- | Set the expected labels for the "BSParserT".
 -- If the expected labels are already set by this operator or (<??>), the old
