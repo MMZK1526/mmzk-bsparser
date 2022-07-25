@@ -82,7 +82,7 @@ Lastly, we defines a very simple `letterParser`, which preduces a letter. We sim
 
 To demonstrate it, run `cabal repl` from the root directory of "playground" and type in `test letterParser "a"` in `GHCi`, and the result should be simple 'a'. Conversely, if we input something that is not a letter, the parser will complain (`>` indicates user input):
 
-```shell
+```txt
 > test letterParser "1"
 Syntax error at row 1 col 1:
   Unexpected '1'.
@@ -93,7 +93,7 @@ Syntax error at row 1 col 1:
 
 Careful readers may notice that the input `"mmzk1526"` passes the parser despite it contains digits. This is because our letter parser only cares about the first character it encounters (namely 'm') and discards the rest of the input. Usually, we want the parser to match ALL of the input, and if there are extraneous texts, the parser should fail. To do so, we modify the first line in the definition of `test` to `test parser inputStr = putStrLn $ case parse (parser <* L.eof) inputStr of`. Here `parser <* L.eof` means run the parser, check if the input has ended, then return the result of the parser. Now if we try the same example, the parser should complain at the second 'm':
 
-```shell
+```txt
 > test letterParser "mmzk1526"
 Syntax error at row 1 col 2:
   Unexpected 'm'.
@@ -112,7 +112,7 @@ wordParser = some letterParser
 
 The function `some` is a parser combinator that takes the argument (which is another parser) and run it **at least once**, returning the list of results. Since a word consists of at least one consecutive letter, `wordParser` parses exactly one word (we don't care if the word is meaningful, *i.e.* we allow real words as well as random combinations of letters).
 
-```shell
+```txt
 > test wordParser "apple"
 "apple"
 > test wordParser "mmzk"
@@ -136,7 +136,7 @@ The function `sepBy1` is another parser combinator. It takes two parsers, the fi
 
 For example, assume the input is "apple,banana", then `wordlistParser` will first parse a word using `wordParser` (which is "apple"), then the first comma is consumed by the separator and the second word is parsed by `wordParser`, then no separator is found, and the parser terminates, producing `["apple", "banana"]`.
 
-```shell
+```txt
 > test wordlistParser "apple,banana"
 ["apple","banana"]
 > test wordlistParser "apple"
@@ -161,7 +161,7 @@ wordlistParser = sepBy1 (lexer $ L.char ',') (prune >> wordParser)
 
 Before explaining how it works, let us try the same examples:
 
-```shell
+```txt
 > test wordlistParser "apple,banana"
 ["apple","banana"]
 > test wordlistParser "apple"
@@ -206,7 +206,7 @@ Pruning is often useful when a parser may be invoked many times by combinators s
 ### Dealing with Spaces
 There is one more problem: we do not allow spaces between commas and words, for example, `wordlistParser` does not accept "apple, banana" and would complain about the space:
 
-```shell
+```txt
 > test wordlistParser "apple, banana"
 Syntax error at row 1 col 7:
   Unexpected ' '.
@@ -231,7 +231,7 @@ wordlistParser = sepBy1 (lexer (L.char ',')) (prune >> lexer wordParser)
 
 The combinator `lexer`[^2] runs its argument parser before invoking the space parser to consume any trailing spaces. Now any spaces after a comma or a word will be ignored:
 
-```shell
+```txt
 > test wordlistParser "apple, banana"
 ["apple","banana"]
 > test wordlistParser "apple, banana  , \t\ncherry  "
@@ -252,7 +252,7 @@ test parser inputStr = putStrLn $ case parse (setSpaceParser (many L.space) >> l
 
 Here, `pure ()` is such a dummy parser, and `lexer (pure ())` does the same thing as our space parser (which is `many L.space`):
 
-```shell
+```txt
 > test wordlistParser " apple, banana"
 ["apple","banana"]
 ```
@@ -268,14 +268,14 @@ test parser inputStr = putStrLn $ case parse (L.wrapper (many L.space) parser) i
 ### Letter Range
 When `L.alpha` determines if a character is a letter, it is using its Unicode General Category, in other words, a character is considered as a letter if it can be interpreted so in any language. For example, the Chinese Character '皝' and the Japanese Kana 'ほ' are both considered as letters:
 
-```shell
+```txt
 > test wordlistParser "献生不辰, 身播国屯, 终我四百, 永作虞宾"
 ["\29486\29983\19981\36784","\36523\25773\22269\23663","\32456\25105\22235\30334","\27704\20316\34398\23486"]
 ```
 
 Note that the results are the codepoints of these characters. Using `putStrLn` on any of those would result in the original verse:
 
-```shell
+```txt
 > putStrLn "\29486\29983\19981\36784"
 献生不辰
 ```
@@ -288,7 +288,7 @@ letterParser = L.alpha <&> [L.ascii]
 
 Now, `letterParser` parses any letter **under the condition that it is also an ASCII character**. The second argument of `(<&>)` is a list, so we can pass in multiple constraints if necessary.
 
-```shell
+```txt
 > test wordlistParser "献生不辰, 身播国屯, 终我四百, 永作虞宾"
 Syntax error at row 1 col 1:
   Unexpected '\29486'.
@@ -303,7 +303,7 @@ letterParser = L.satisfy (\ch -> isAlpha ch && isAscii ch)
 
 Here, we are parsing a character that is both a letter and belongs to the ASCII character set. The behaviour should be (almost) identical:
 
-```shell
+```txt
 > test wordlistParser "献生不辰, 身播国屯, 终我四百, 永作虞宾"
 Syntax error at row 1 col 1:
   Unexpected '\29486'.
@@ -317,7 +317,7 @@ letterParser = L.satisfy (\ch -> isAlpha ch && isAscii ch) <?> ["ascii letter"]
 
 Now when an error occurs in `letterParser`, it will say "Expecting ascii letter":
 
-```shell
+```txt
 > test wordlistParser "献生不辰, 身播国屯, 终我四百, 永作虞宾"
 Syntax error at row 1 col 1:
   Unexpected '\29486'.
@@ -345,7 +345,7 @@ It is a lot more complicated than before, but we will go through each construct 
 
 In `wordParser`, it at first parses a list of letters using `some letterParser` (which is identical to the old `wordParser`), putting the result in `pureLetters`. Then we apply `groupParser` many times. Note that here we used `manyS` instead of `many`, this is because `groupParser` already returns a `String`, and `many groupParser` would return a list of `String`. The combinator `manyS` is similar to `many`, expect it "concatenates" the result. Finally, we return the entire word by concatenating the initial letter part and the (possibly empty) symbol groups.
 
-```shell
+```txt
 > test wordlistParser "Satine, Bo-Katan"
 ["Satine","Bo-Katan"]
 > test wordlistParser "'Front"

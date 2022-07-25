@@ -16,10 +16,10 @@ letterParser :: Parser Char
 letterParser = L.satisfy (\ch -> isAlpha ch && isAscii ch) <?> ["ascii letter"]
 
 wordParser :: Parser String
-wordParser = CPS.some letterParser ((CPS.manyS (\p -> prune >> groupParser p)) (pure []))
-  where
-    -- Note that now groupParser is a combinator
-    groupParser p = CPS.cons (choice [L.char '-', L.char '\'']) (CPS.some letterParser p)
+wordParser = ( CPS.some letterParser
+             . CPS.manyS ( (prune >>)
+                         . CPS.cons (choice [L.char '-', L.char '\''])
+                         . CPS.some letterParser ) ) (pure [])
 
 wordlistParser :: Parser [String]
 wordlistParser = sepBy1 (lexer $ L.char ',') (prune >> lexer wordParser)

@@ -34,6 +34,12 @@ The introduction of "CPS (Continuation Passing Style) parsers" solve the problem
 import qualified MMZK.BSParser.CPS as CPS
 ```
 
+Let's look at the (much simplified) signature of our first CPS parser:
+
+```Haskell
+some :: BSParser e a -> BSParser e [a] -> BSParser e [a]
+```
+
 In this style, the combinator `CPS.some` now takes an extra parser which describes what to do after using the first parser one or more times. For example, `CPS.some letterParser (L.string "123")` means parsing one or more letters followed by the string literal "123". In other word, it is equivalent to
 
 ```Haskell
@@ -60,7 +66,7 @@ There are more CPS parsers, such as `CPS.string`, which parse the given string f
 
 To test our parser, run `cabal repl` from the root directory of "playground", as we did before in the original ["Wordlist" tutorial](README.md#quickstart):
 
-```shell
+```txt
 > test wordlistParser "Satine, Bo-Katan"
 ["Satine","Bo-Katan"]
 > test wordlistParser "'Front"
@@ -74,7 +80,12 @@ Syntax error at row 1 col 8:
 ```
 
 ### Higher-Order CPS Parsers
-In fact, we can even do better. There is also a CPS variation for `manyS`, which takes a **combinator** for string parsers, and produces a combinator by self-applying the argument for zero, one, or more times.
+In fact, we can even do better. There is also a CPS variation for `manyS`, which takes a **combinator** for string parsers, and produces a combinator by self-applying the argument for zero, one, or more times:
+
+```Haskell
+-- Again, the signature is simplified.
+manyS :: (Parser [a] -> Parser [a]) -> (Parser [a] -> Parser [a])
+```
 
 The definition is quite obscure and it can be best explained with an example. Suppose we want to parse words such as "buzz", "fizzbuzz", "fizzfizzbuzz", "fizzfizzfizzbuzz", *i.e.* words that start with at least one "fizz" and end with "buzz". Using the CPS version for `manyS`, we can write the parser simply as `CPS.manyS (CPS.string "fizz") (L.string "buzz")`. Note that the first argument is also a combinator that takes a string parser and produces a string parser.
 
@@ -101,7 +112,7 @@ wordParser = ( CPS.some letterParser
 
 Finally, we verify that the parser works as expected:
 
-```shell
+```txt
 > test wordlistParser "Satine, Bo-Katan"
 ["Satine","Bo-Katan"]
 > test wordlistParser "'Front"
