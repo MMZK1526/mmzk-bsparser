@@ -80,6 +80,22 @@ binDigitsStr :: Monad m => BSParserT e m String
 binDigitsStr = some binDigit
 {-# INLINE [2] binDigitsStr #-}
 
+-- | Parse a string of alphabetic Unicode characters, following their General
+-- Categories.
+alphas :: Monad m => BSParserT e m String
+alphas = some alpha
+{-# INLINE [2] alphas #-}
+
+-- | Parse a string of alphabetic Unicode characters or digits.
+alphaDigits :: Monad m => BSParserT e m String
+alphaDigits = some alphaDigit
+{-# INLINE [2] alphaDigits #-}
+
+-- | Parse a string of alphabetic Unicode characters, digits, or underscores.
+identifier :: Monad m => BSParserT e m String
+identifier = some (satisfy (\ch -> isAlpha ch || isDigit ch || ch == '_'))
+{-# INLINE [2] identifier #-}
+
 
 --------------------------------------------------------------------------------
 -- Char

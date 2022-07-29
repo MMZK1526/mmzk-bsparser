@@ -3,10 +3,12 @@
 module MMZK.BSParser.CPS
   ( cons, many, some, manyS, someS, digitsStr, hexDigitsStr, octDigitsStr
   , binDigitsStr, string, optional, optionalS, range, rangeS, sepBy1
-  , sepBy1S, sepBy, sepByS, sepEndBy, sepEndByS, sepEndBy1, sepEndBy1S ) where
+  , sepBy1S, sepBy, sepByS, sepEndBy, sepEndByS, sepEndBy1, sepEndBy1S
+  , alphas, alphaDigits, identifier ) where
 
 import           Control.Monad
 import           Control.Applicative (Alternative, liftA2, empty, (<|>))
+import           Data.Char
 import           MMZK.BSParser.Convert
 import qualified MMZK.BSParser.Lexer as L
 import           MMZK.BSParser.Parser (BSParserT)
@@ -228,3 +230,19 @@ octDigitsStr = some L.octDigit
 binDigitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
 binDigitsStr = some L.binDigit
 {-# INLINE [2] binDigitsStr #-}
+
+-- | Parse a string of alphabetic Unicode characters, following their General
+-- Categories.
+alphas :: Monad m => BSParserT e m String -> BSParserT e m String
+alphas = some L.alpha
+{-# INLINE [2] alphas #-}
+
+-- | Parse a string of alphabetic Unicode characters or digits.
+alphaDigits :: Monad m => BSParserT e m String -> BSParserT e m String
+alphaDigits = some L.alphaDigit
+{-# INLINE [2] alphaDigits #-}
+
+-- | Parse a string of alphabetic Unicode characters, digits, or underscores.
+identifier :: Monad m => BSParserT e m String -> BSParserT e m String
+identifier = some (L.satisfy (\ch -> isAlpha ch || isDigit ch || ch == '_'))
+{-# INLINE [2] identifier #-}
