@@ -1,7 +1,10 @@
 -- Utility lexers for characters, strings and digits.
 
+{-# LANGUAGE TypeApplications #-}
+
 module MMZK.BSParser.Lexer where
 
+import           Control.Monad
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.Char
@@ -91,9 +94,11 @@ alphaDigits :: Monad m => BSParserT e m String
 alphaDigits = some alphaDigit
 {-# INLINE [2] alphaDigits #-}
 
--- | Parse a string of alphabetic Unicode characters, digits, or underscores.
+-- | Parse a string of alphabetic Unicode characters, digits, or underscores,
+-- but not starting with a digit.
 identifier :: Monad m => BSParserT e m String
-identifier = some (satisfy (\ch -> isAlpha ch || isDigit ch || ch == '_'))
+identifier = liftM2 (:) alphaDigit
+           $ many (satisfy (\ch -> isAlpha ch || isDigit ch || ch == '_'))
 {-# INLINE [2] identifier #-}
 
 
@@ -240,26 +245,88 @@ upper = satisfy isUpper <?> [bilUpper defaultBuiltInLabels]
 -- Number
 --------------------------------------------------------------------------------
 
--- | Parse a string of (unsigned) digits.
+-- | Parse a string of (unsigned) digits into number.
 digits :: Num a => Monad m => BSParserT e m a
 digits = foldl' ((+) . (* 10)) 0
        . fmap (fromIntegral . (+ 208)) <$> some P8.digit
 {-# INLINE [2] digits #-}
 
--- | Parse a string of (unsigned) digits.
+-- | Parse a string of (unsigned) hex digits into number.
 hexDigits :: Num a => Monad m => BSParserT e m a
 hexDigits = foldl' ((+) . (* 16)) 0
-          . fmap (fromIntegral . digitToInt) <$> some digit
+          . fmap (fromIntegral . digitToInt) <$> some hexDigit
 {-# INLINE [2] hexDigits #-}
 
--- | Parse a string of (unsigned) digits.
+-- | Parse a string of (unsigned) oct digits into number.
 octDigits :: Num a => Monad m => BSParserT e m a
 octDigits = foldl' ((+) . (* 8)) 0
-          . fmap (fromIntegral . (+ 208)) <$> some P8.digit
+          . fmap (fromIntegral . (+ 208)) <$> some P8.octDigit
 {-# INLINE [2] octDigits #-}
 
--- | Parse a string of (unsigned) digits.
+-- | Parse a string of (unsigned) bin digits into number.
 binDigits :: Num a => Monad m => BSParserT e m a
 binDigits = foldl' ((+) . (* 2)) 0
-          . fmap (fromIntegral . (+ 208)) <$> some P8.digit
+          . fmap (fromIntegral . (+ 208)) <$> some P8.binDigit
 {-# INLINE [2] binDigits #-}
+
+-- | Parses a string of digits into a pure decimal number (i.e. "114514" to
+-- 0.114514). Does not take the decimal point.
+fractional :: Fractional a => Monad m => BSParserT e m a
+fractional = foldl' ((. (/ 10)) . (+)) 0
+           . fmap (fromIntegral . (+ 208)) <$> some P8.digit
+{-# INLINE [2] fractional #-}
+
+-- | Parses a string of hex digits into a pure decimal number (i.e. "114514" to
+-- 0.114514). Does not take the decimal point.
+hexFractional :: Fractional a => Monad m => BSParserT e m a
+hexFractional = foldl' ((. (/ 10)) . (+)) 0
+              . fmap (fromIntegral . digitToInt) <$> some hexDigit
+{-# INLINE [2] hexFractional #-}
+
+-- | Parses a string of oct digits into a pure decimal number (i.e. "114514" to
+-- 0.114514). Does not take the decimal point.
+octFractional :: Fractional a => Monad m => BSParserT e m a
+octFractional = foldl' ((. (/ 10)) . (+)) 0
+              . fmap (fromIntegral . (+ 208)) <$> some P8.octDigit
+{-# INLINE [2] octFractional #-}
+
+-- | Parses a string of bin digits into a pure decimal number (i.e. "10101" to
+-- 0.10101). Does not take the decimal point.
+binFractional :: Fractional a => Monad m => BSParserT e m a
+binFractional = foldl' ((. (/ 10)) . (+)) 0
+              . fmap (fromIntegral . (+ 208)) <$> some P8.binDigit
+{-# INLINE [2] binFractional #-}
+
+-- | Take a "BSParserT" that parses a number, apply it with the sign ('+', '-'
+-- or nothing).
+signed :: Num a => Monad m => BSParserT e m a -> BSParserT e m a
+signed = ap (asum [id <$ char '+', negate <$ char '-', pure id])
+{-# INLINE [2] signed #-}
+
+-- | Take two parsers for the integral part and decimal part (does not include
+-- the decimal point) of a number, combining them together.
+decimate :: Fractional a => Monad m
+         => BSParserT e m a -> BSParserT e m a -> BSParserT e m a
+decimate = (. (char '.' >>)) . liftM2 (+)
+{-# INLINE [2] decimate #-}
+
+-- | Take the base and two parsers for the coefficient part and exponential part
+-- of a number,
+-- combining them together. The exponential part must be an integer.
+scientify :: Fractional a => Integral b => Monad m
+          => Int -> BSParserT e m a -> BSParserT e m b -> BSParserT e m a
+scientify b pC pE = liftM2 ((. (fromIntegral b ^)) . (*)) pC (oneOf "eE" >> pE)
+{-# INLINE [2] scientify #-}
+
+-- | Parses an (unsigned) real number.
+-- Allows not having an integral part (i.e. starting with the decimal point).
+-- Allows not having a decimal point providing an integral part is present.
+-- Allows having a decimal point but not a decimal part (e.g. "3.").
+-- Allows scientific notation (e.g. followed by "e12" or "E-1").
+real :: Fractional a => Monad m => BSParserT e m a
+real = do
+  intPart <- optional digits
+  coePart <- case intPart of
+    Nothing -> decimate (pure 0) fractional
+    Just n  -> asum [decimate (pure n) (asum [fractional, pure 0]), pure n]
+  asum [scientify 10 (pure coePart) (asum [digits @ Int, pure 0]), pure coePart]

@@ -46,7 +46,8 @@ library
         CPP,
         FlexibleInstances,
         OverloadedStrings,
-        TupleSections
+        TupleSections,
+        TypeApplications
 
     build-depends:
         base,

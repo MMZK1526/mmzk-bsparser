@@ -242,7 +242,9 @@ alphaDigits :: Monad m => BSParserT e m String -> BSParserT e m String
 alphaDigits = some L.alphaDigit
 {-# INLINE [2] alphaDigits #-}
 
--- | Parse a string of alphabetic Unicode characters, digits, or underscores.
+-- | Parse a string of alphabetic Unicode characters, digits, or underscores,
+-- but not starting with a digit.
 identifier :: Monad m => BSParserT e m String -> BSParserT e m String
-identifier = some (L.satisfy (\ch -> isAlpha ch || isDigit ch || ch == '_'))
+identifier = cons L.alphaDigit
+           . some (L.satisfy (\ch -> isAlpha ch || isDigit ch || ch == '_'))
 {-# INLINE [2] identifier #-}
