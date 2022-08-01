@@ -329,20 +329,3 @@ real = do
     Just n  -> asum [decimate (pure n) (asum [fractional, pure 0]), pure n]
   asum [ scientify 10 (pure coePart) (asum [signed digits, pure (0 :: Int)])
        , pure coePart ]
-
--- jNum :: Fractional a => Monad m => BSParserT e m a
--- jNum = do
---   minusSign <- optional $ char '-'
---   case minusSign of
---     Nothing -> jUNum
---     Just _  -> negate <$> jUNum
---   where
---     jUNum = do
---       m0 <- optional $ char '0'
---       coePart <- case m0 of
---         Just _  -> choice [decimate (pure 0) fractional, 0 <$ neg digit]
---         Nothing -> do
---           intPart <- digits
---           choice [decimate (pure intPart) fractional, pure intPart]
---       asum [ scientify 10 (pure coePart) (asum [signed digits, pure (0 :: Int)])
---            , pure coePart ]

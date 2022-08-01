@@ -5,7 +5,7 @@ module MMZK.BSParser
   , range, sepBy, sepBy1, sepEndBy, sepEndBy1, ParseState(..), ErrSpan, (<?>)
   , inspect, withLen, renderErrBundle, renderErrBundleAsStr, (<??>), prune
   , withPrune, setTabWidth, manyS, someS, optionalS, rangeS, sepByS, sepEndByS
-  , sepBy1S, sepEndBy1S ) where
+  , sepBy1S, sepEndBy1S, optional, pmap ) where
 
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Error

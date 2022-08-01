@@ -87,3 +87,16 @@ test-suite kuohu
         HUnit ^>=1.6.2.0,
         mmzk-bsparser,
         containers ^>=0.6.5.1
+
+
+test-suite json
+    default-language: Haskell2010
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          JSON.hs
+    other-modules:    Base
+    build-depends:
+        base,
+        HUnit ^>=1.6.2.0,
+        mmzk-bsparser,
+        containers ^>=0.6.5.1

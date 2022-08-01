@@ -19,6 +19,7 @@ import qualified Data.Set as S
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Text as T
 import           Data.Void
+import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Debug
 
 -- | A class similar to "Show", but returns a "Text". It is used to provide an
@@ -212,3 +213,27 @@ renderErrBundleAsStr = unpack . renderErrBundle
 nil :: PError e
 nil = BasicErr (UItem Nothing Nothing) M.empty []
 {-# INLINE [2] nil #-}
+
+-- | Build the "PError" with the given unexpected label.
+withUnexpectedLabel :: TextLike s => s -> PError e -> PError e
+withUnexpectedLabel str err@BasicErr { unexpected = UItem _ tk }
+  = err { unexpected = UItem (Just $ toText str) tk }
+withUnexpectedLabel _ err
+  = err
+{-# INLINE [2] withUnexpectedLabel #-}
+
+-- | Build the "PError" with the given unexpected charaxte.
+withUnexpectedChar :: Char -> PError e -> PError e
+withUnexpectedChar ch err@BasicErr { unexpected = UItem l _ }
+  = err { unexpected = UItem l (Just $ CToken ch) }
+withUnexpectedChar _ err
+  = err
+{-# INLINE [2] withUnexpectedChar #-}
+
+-- | Build the "PError" with the given unexpected "ByteString".
+withUnexpectedBS :: ByteStringLike s => s -> PError e -> PError e
+withUnexpectedBS str err@BasicErr { unexpected = UItem l _ }
+  = err { unexpected = UItem l (Just . SToken $ toByteString str) }
+withUnexpectedBS _ err
+  = err
+{-# INLINE [2] withUnexpectedBS #-}
