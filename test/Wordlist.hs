@@ -3,7 +3,6 @@ import           MMZK.BSParser
 import           MMZK.BSParser.Error
 import qualified MMZK.BSParser.CPS as CPS
 import qualified MMZK.BSParser.ASCII as PA
-import           Data.Either
 import qualified Data.Map as M
 import qualified Data.Set as S
 import           Test.HUnit
