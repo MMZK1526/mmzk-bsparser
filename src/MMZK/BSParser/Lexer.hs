@@ -313,7 +313,7 @@ decimate = (. (char '.' >>)) . liftM2 (+)
 -- combining them together. The exponential part must be an integer.
 scientify :: Fractional a => Integral b => Monad m
           => Int -> BSParserT e m a -> BSParserT e m b -> BSParserT e m a
-scientify b pC pE = liftM2 ((. (fromIntegral b ^)) . (*)) pC (oneOf "eE" >> pE)
+scientify b pC pE = liftM2 ((. (fromIntegral b ^^)) . (*)) pC (oneOf "eE" >> pE)
 {-# INLINE [2] scientify #-}
 
 -- | Parses an (unsigned) real number.
