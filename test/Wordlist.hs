@@ -1,57 +1,40 @@
+import           Base
 import           MMZK.BSParser
+import           MMZK.BSParser.Error
 import qualified MMZK.BSParser.CPS as CPS
 import qualified MMZK.BSParser.ASCII as PA
 import           Data.Either
+import qualified Data.Map as M
+import qualified Data.Set as S
 import           Test.HUnit
-
--- | A basic parser type that uses "String" as the custom error type.
-type Parser a = BSParser String a
 
 main :: IO ()
 main = runTestTTAndExit $ TestList [test1, test2, test3]
   where
     test1 = TestLabel "Wordlist 1"
-          $ TestList [ testSingleValid1 sithList sith
-                     , testSingleInvalid1 sithE
-                     , testSingleInvalid1 jedi ]
+          $ TestList [ testValid parseWordlist1 sithList sith
+                     , testInvalid parseWordlist1 [err2] sithE
+                     , testInvalid parseWordlist1 [err1] jedi ]
     test2 = TestLabel "Wordlist 2"
-          $ TestList [ testSingleValid2 sithList sith
-                     , testSingleValid2 sithList sithE
-                     , testSingleInvalid1 jedi ]
+          $ TestList [ testValid parseWordlist2 sithList sith
+                     , testValid parseWordlist2 sithList sithE
+                     , testInvalid parseWordlist2 [err1] jedi ]
     test3 = TestLabel "Wordlist 3"
-          $ TestList [ testSingleValid3 sithList sith
-                     , testSingleValid3 sithList sithE
-                     , testSingleValid3 jediList jedi ]
-
-testSingleValid1 :: [String] -> String -> Test
-testSingleValid1 es str = TestCase 
-                         $ assertEqual ("Test parsing " ++ show str ++ ":")
-                                       (Right es) (parseWordlist1 str)
-
-testSingleInvalid1 :: String -> Test
-testSingleInvalid1 str = TestCase
-                       $ assertBool ("Test parsing " ++ show str ++ ":")
-                                    (isLeft $ parseWordlist1 str)
-
-testSingleValid2 :: [String] -> String -> Test
-testSingleValid2 es str = TestCase 
-                         $ assertEqual ("Test parsing" ++ show str ++ ":")
-                                       (Right es) (parseWordlist2 str)
-
-testSingleInvalid2 :: String -> Test
-testSingleInvalid2 str = TestCase
-                       $ assertBool ("Test parsing " ++ show str ++ ":")
-                                    (isLeft $ parseWordlist2 str)
-
-testSingleValid3 :: [String] -> String -> Test
-testSingleValid3 es str = TestCase 
-                         $ assertEqual ("Test parsing" ++ show str ++ ":")
-                                       (Right es) (parseWordlist3 str)
-
-testSingleInvalid3 :: String -> Test
-testSingleInvalid3 str = TestCase
-                       $ assertBool ("Test parsing " ++ show str ++ ":")
-                                    (isLeft $ parseWordlist3 str)
+          $ TestList [ testValid parseWordlist3 sithList sith
+                     , testValid parseWordlist3 sithList sithE
+                     , testValid parseWordlist3 jediList jedi ]
+    err1  = ErrSpan 
+        { esLoc   = (3, 3)
+        , esError = BasicErr 
+            { unexpected  = UItem Nothing (Just (CToken '-'))
+            , expecting   = M.fromList [(Nothing, S.fromList [EOI])]
+            , errMessages = [] } }
+    err2  = ErrSpan 
+        { esLoc   = (0, 0)
+        , esError = BasicErr 
+            { unexpected  = UItem Nothing (Just (CToken ' '))
+            , expecting   = M.fromList [(Nothing, S.fromList [EOI])]
+            , errMessages = [] } }
 
 sith, sithE, jedi :: String
 sith  = "Darth,Sidious,Maul,Tyranus,Vader"
@@ -82,7 +65,8 @@ wordlistParser2 = do
   lexer $ pure () -- Parse leading spaces
   sepBy (lexer $ PA.char ',') (lexer $ some PA.alpha)
 
--- | Parse a Wordlist, but allows the words to contain "'" and "-".
+-- | Parse a Wordlist, but allows the words to contain non-consecutive "'" and
+-- "-".
 parseWordlist3 :: ByteStringLike s => s -> Either (ErrBundle String) [String]
 parseWordlist3 = parse (wordlistParser3 <* PA.eof)
 

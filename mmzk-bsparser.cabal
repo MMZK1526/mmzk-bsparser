@@ -68,10 +68,12 @@ test-suite wordlist
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Wordlist.hs
+    other-modules:    Base
     build-depends:
         base,
         HUnit ^>=1.6.2.0,
-        mmzk-bsparser
+        mmzk-bsparser,
+        containers ^>=0.6.5.1
 
 
 test-suite kuohu
@@ -79,7 +81,9 @@ test-suite kuohu
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Kuohu.hs
+    other-modules:    Base
     build-depends:
         base,
         HUnit ^>=1.6.2.0,
-        mmzk-bsparser
+        mmzk-bsparser,
+        containers ^>=0.6.5.1
