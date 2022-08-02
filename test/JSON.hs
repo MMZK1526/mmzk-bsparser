@@ -1,14 +1,16 @@
 import           Base
+import           Data.Char
 import           MMZK.BSParser
 import           MMZK.BSParser.Error
 import qualified MMZK.BSParser.CPS as CPS
 import qualified MMZK.BSParser.Lexer as L
 import qualified Data.Map as M
+import           Data.Maybe
 import qualified Data.Set as S
 import           Test.HUnit
 
 main :: IO ()
-main = case parseJSON " [1, 3.2, true, [], [-2.3e-3] ]" of
+main = case parseJSON " [1, 3.2, true, \"\\u0020\" ]" of
   Left x -> print $ renderErrBundle (x :: ErrBundle String)
   Right a -> print a
 
@@ -48,7 +50,8 @@ jNum = do
     jUNum = do
       m0 <- optional $ L.char '0'
       coePart <- case m0 of
-        Just _  -> choice [L.decimate (pure 0) L.fractional, 0 <$ L.neg L.digit]
+        Just _  -> choice [ L.decimate (pure 0) L.fractional
+                          , 0 <$ L.neg L.digitChar ]
         Nothing -> do
           intPart <- L.digits
           choice [L.decimate (pure intPart) L.fractional, pure intPart]
@@ -68,7 +71,27 @@ jArr = parens (lexer $ L.char '[') (lexer $ L.char ']')
 
 -- | Parse a JSON string.
 jStr :: Monad m => BSParserT e m String
-jStr = empty
+jStr = L.char '"' >> inner
+  where
+    inner = do
+      ch <- L.satisfy (not . isControl) <?> ["Non-control character"]
+      case ch of
+        '"'  -> pure ""
+        '\\' -> do
+          esc <- pbind ( fromMaybe empty 
+                       . (`lookup` [ ('"', pure '"')
+                                   , ('\\', pure '\\')
+                                   , ('/', pure '/')
+                                   , ('b', pure '\b')
+                                   , ('f', pure '\f')
+                                   , ('n', pure '\n')
+                                   , ('r', pure '\r')
+                                   , ('t', pure '\t')
+                                   , ('u', jCodepoint) ]) ) L.anyChar
+             <?> ["Escape character"]
+          (esc :) <$> inner
+        _    -> (ch :) <$> inner
+    jCodepoint = chr . foldl ((+) . (16 *)) 0 <$> replicateM 4 L.hexDigit
 
 -- | Parse a JSON object.
 jObj :: Monad m => BSParserT e m [(String, JSON)]

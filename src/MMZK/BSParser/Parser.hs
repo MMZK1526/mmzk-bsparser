@@ -405,8 +405,8 @@ sepEndBy1S :: Monad m => Monoid a
 sepEndBy1S = (fmap mconcat . ) . sepEndBy1
 {-# INLINE [2] sepEndBy1S #-}
 
--- | Use the "BSParserT" and map the result by the given function. Fails if it
--- returns Nothing.
+-- | Use the "BSParserT" and map the result by the given function. Fails with
+-- the "ByteString" been consumed if function returns Nothing.
 pmap :: Monad m => (b -> Maybe a) -> BSParserT e m b -> BSParserT e m a
 pmap f p = do
   ix  <- parseIndex <$> getState
@@ -415,6 +415,22 @@ pmap f p = do
   case f r of
     Just a  -> pure a
     Nothing -> do
+      bs <- parseStr <$> getState
+      throw $ ErrSpan { esLoc = (ix, ix' - 1)
+                      , esError = withUnexpectedBS ( BS.take (ix' - ix)
+                                                   $ BS.drop ix bs) nil }
+
+-- | Use the "BSParserT" and map the result by the given monadic action. Fails
+-- with the "ByteString" been consumed if the action fails.
+pbind :: Monad m => (b -> BSParserT e m a) -> BSParserT e m b -> BSParserT e m a
+pbind f p = do
+  ix  <- parseIndex <$> getState
+  r   <- p
+  ix' <- parseIndex <$> getState
+  r'  <- inspect $ f r
+  case r' of
+    Right a -> pure a
+    Left _  -> do
       bs <- parseStr <$> getState
       throw $ ErrSpan { esLoc = (ix, ix' - 1)
                       , esError = withUnexpectedBS ( BS.take (ix' - ix)

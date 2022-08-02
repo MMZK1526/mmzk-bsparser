@@ -213,22 +213,22 @@ string str p = case toString str of
 
 -- | Parse a string of (unsigned) digits.
 digitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
-digitsStr = some L.digit
+digitsStr = some L.digitChar
 {-# INLINE [2] digitsStr #-}
 
 -- | Parse a string of (unsigned) hex digits.
 hexDigitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
-hexDigitsStr = some L.hexDigit
+hexDigitsStr = some L.hexDigitChar
 {-# INLINE [2] hexDigitsStr #-}
 
 -- | Parse a string of (unsigned) oct digits.
 octDigitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
-octDigitsStr = some L.octDigit
+octDigitsStr = some L.octDigitChar
 {-# INLINE [2] octDigitsStr #-}
 
 -- | Parse a string of (unsigned) bin digits.
 binDigitsStr :: Monad m => BSParserT e m String -> BSParserT e m String
-binDigitsStr = some L.binDigit
+binDigitsStr = some L.binDigitChar
 {-# INLINE [2] binDigitsStr #-}
 
 -- | Parse a string of alphabetic Unicode characters, following their General
