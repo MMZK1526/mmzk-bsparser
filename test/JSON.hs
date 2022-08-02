@@ -10,7 +10,7 @@ import qualified Data.Set as S
 import           Test.HUnit
 
 main :: IO ()
-main = case parseJSON " [1, 3.2, true, \"\\u0020\" ]" of
+main = case parseJSON " [1, 3.2, true, \"\\u0020\", {1: null, \"b\": -2e3} ]" of
   Left x -> print $ renderErrBundle (x :: ErrBundle String)
   Right a -> print a
 
@@ -28,11 +28,11 @@ parseJSON :: ByteStringLike s => s -> Either (ErrBundle String) JSON
 parseJSON = parse (L.wrapper jSpace jsonParser)
 
 jsonParser :: Monad m => BSParserT e m JSON
-jsonParser = choice [ Num <$> jNum
-                    , Lit <$> jLit
-                    , Str <$> jStr
-                    , Arr <$> jArr
-                    , Obj <$> jObj ]
+jsonParser = prune >> choice [ Num <$> jNum
+                             , Lit <$> jLit
+                             , Str <$> jStr
+                             , Arr <$> jArr
+                             , Obj <$> jObj ]
 
 -- | Parse JSON whitespaces.
 jSpace :: Monad m => BSParserT e m ()
@@ -55,8 +55,8 @@ jNum = do
         Nothing -> do
           intPart <- L.digits
           choice [L.decimate (pure intPart) L.fractional, pure intPart]
-      choice [ L.scientify 10 (pure coePart) (choice [ L.signed L.digits
-                                                     , pure (0 :: Int) ])
+      choice [ L.scientify 10 (pure coePart) 
+                              (choice [L.signed L.digits, pure 0])
              , pure coePart ]
 
 -- | Parse "true", "false", and "null".
@@ -66,15 +66,15 @@ jLit = pmap (`lookup` [("true", JTrue), ("false", JFalse), ("null", JNull)])
 
 -- | Parse a JSON array.
 jArr :: Monad m => BSParserT e m [JSON]
-jArr = parens (lexer $ L.char '[') (lexer $ L.char ']')
-     $ sepBy (lexer $ L.char ',') (prune >> L.lexer jsonParser)
+jArr = CPS.runCPS . CPS.parens (lexer $ L.char '[') (lexer $ L.char ']')
+     $ CPS.sepBy (lexer $ L.char ',') (L.lexer jsonParser)
 
 -- | Parse a JSON string.
 jStr :: Monad m => BSParserT e m String
-jStr = L.char '"' >> inner
+jStr = L.char '"' <?> ["string literal"] >> inner
   where
     inner = do
-      ch <- L.satisfy (not . isControl) <?> ["Non-control character"]
+      ch <- L.satisfy (not . isControl) <?> ["non-control character"]
       case ch of
         '"'  -> pure ""
         '\\' -> do
@@ -95,8 +95,8 @@ jStr = L.char '"' >> inner
 
 -- | Parse a JSON object.
 jObj :: Monad m => BSParserT e m [(String, JSON)]
-jObj = parens (lexer $ L.char '{') (lexer $ L.char '}')
-     . sepBy (lexer $ L.char ',') $ do
+jObj = CPS.runCPS . CPS.parens (lexer $ L.char '{') (lexer $ L.char '}')
+     . CPS.sepBy (lexer $ L.char ',') $ do
   prune
   key   <- lexer jStr
   lexer . void $ L.char ':'

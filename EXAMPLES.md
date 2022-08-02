@@ -104,11 +104,14 @@ CPS parsers are easily composable, thus we can rewrite the definition above into
 
 ```Haskell
 wordParser :: Parser String
-wordParser = ( CPS.some letterParser
-             . CPS.manyS ( (prune >>)
-                         . CPS.cons (choice [L.char '-', L.char '\''])
-                         . CPS.some letterParser ) ) (pure [])
+wordParser = CPS.runCPS 
+           $ CPS.some letterParser
+           . CPS.manyS ( (prune >>)
+                       . CPS.cons (choice [L.char '-', L.char '\''])
+                       . CPS.some letterParser )
 ```
+
+Here, `runCPS` simply means apply `pure []` to the CPS parser.
 
 Finally, we verify that the parser works as expected:
 

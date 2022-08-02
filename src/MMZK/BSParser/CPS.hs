@@ -4,7 +4,7 @@ module MMZK.BSParser.CPS
   ( cons, many, some, manyS, someS, digitsStr, hexDigitsStr, octDigitsStr
   , binDigitsStr, string, optional, optionalS, range, rangeS, sepBy1
   , sepBy1S, sepBy, sepByS, sepEndBy, sepEndByS, sepEndBy1, sepEndBy1S
-  , alphas, alphaDigits, identifier ) where
+  , alphas, alphaDigits, identifier, parens, runCPS ) where
 
 import           Control.Monad
 import           Control.Applicative (Alternative, liftA2, empty, (<|>))
@@ -49,8 +49,21 @@ rangeL m n p q = go m
 -- Combinators
 --------------------------------------------------------------------------------
 
+-- | Turns a CPS parser into a normal one by applying with @pure empty@.
+runCPS :: Alternative t => Monad m
+       => (BSParserT e m (t a) -> BSParserT e m (t a)) -> BSParserT e m (t a)
+runCPS pCPS = pCPS (pure empty)
+
+-- | Parse for left paren, content, and right paren, returning only the content.
+parens :: Alternative t => Monad m
+       => BSParserT e m o -> BSParserT e m c
+       -> (BSParserT e m (t a) -> BSParserT e m (t a))
+       -> (BSParserT e m (t a) -> BSParserT e m (t a))
+parens po pc pCPS = (po >>) . pCPS . (pc >>)
+{-# INLINE [2] parens #-}
+
 -- | Parse with the first argument followed by the second argument.
-cons :: Alternative t => Foldable t => Monad m
+cons :: Alternative t => Monad m
      => BSParserT e m a -> BSParserT e m (t a) -> BSParserT e m (t a)
 cons = liftA2 ((<|>) . pure)
 {-# INLINE [2] cons #-}
@@ -58,14 +71,14 @@ cons = liftA2 ((<|>) . pure)
 
 -- | Parse with the first argument zero, one, or more times, followed by the
 -- second argument.
-many :: Alternative t => Foldable t => Monad m
+many :: Alternative t => Monad m
      => BSParserT e m a -> BSParserT e m (t a) -> BSParserT e m (t a)
 many p q = msum [liftA2 ((<|>) . pure) p (many p q), q]
 {-# NOINLINE [2] many #-}
 {-# RULES "many/[]" [~2] many = manyL #-}
 
 -- | Take a "ParserT" transformer and apply it zero, one, or more times.
-manyS :: Alternative t => Foldable t => Monad m
+manyS :: Alternative t => Monad m
       => (BSParserT e m (t a) -> BSParserT e m (t a))
       -> (BSParserT e m (t a) -> BSParserT e m (t a))
 manyS pCPS q = msum [pCPS $ msum [manyS pCPS q, q], q]
@@ -73,7 +86,7 @@ manyS pCPS q = msum [pCPS $ msum [manyS pCPS q, q], q]
 
 -- | Parse with the first argument one or more times, followed by the second
 -- argument.
-some :: Alternative t => Foldable t => Monad m
+some :: Alternative t => Monad m
      => BSParserT e m a -> BSParserT e m (t a) -> BSParserT e m (t a)
 some p q = liftA2 ((<|>) . pure) p
          $ msum [liftA2 ((<|>) . pure) p (many p q), q]
@@ -81,7 +94,7 @@ some p q = liftA2 ((<|>) . pure) p
 {-# RULES "some/[]" [~2] some = someL #-}
 
 -- | Take a "ParserT" transformer and apply it one or more times.
-someS :: Alternative t => Foldable t => Monad m
+someS :: Alternative t => Monad m
       => (BSParserT e m (t a) -> BSParserT e m (t a))
       -> (BSParserT e m (t a) -> BSParserT e m (t a))
 someS pCPS q = pCPS $ msum [someS pCPS q, q]
@@ -89,14 +102,14 @@ someS pCPS q = pCPS $ msum [someS pCPS q, q]
 
 -- | Parse with the first argument zero or one time, followed by the second
 -- argument.
-optional :: Alternative t => Foldable t => Monad m
+optional :: Alternative t => Monad m
          => BSParserT e m a -> BSParserT e m (t a) -> BSParserT e m (t a)
 optional p q = msum [liftA2 ((<|>) . pure) p q, q]
 {-# INLINE [2] optional #-}
 {-# RULES "optional/[]" [~2] optional = optionalL #-}
 
 -- | Take a "ParserT" transformer and apply it zero or one time.
-optionalS :: Alternative t => Foldable t => Monad m
+optionalS :: Alternative t => Monad m
           => (BSParserT e m (t a) -> BSParserT e m (t a))
           -> (BSParserT e m (t a) -> BSParserT e m (t a))
 optionalS pCPS q = msum [pCPS q, q]
@@ -104,7 +117,7 @@ optionalS pCPS q = msum [pCPS q, q]
 
 -- | Parse the content between m (inclusive) and n (exclusive) times, followed
 -- by the last argument. If n <= m, returns an error.
-range :: Alternative t => Foldable t => Monad m
+range :: Alternative t => Monad m
       => Int -> Int -> BSParserT e m a -> BSParserT e m (t a)
       -> BSParserT e m (t a)
 range m n _ _
@@ -123,7 +136,7 @@ range m n p q = go m
 
 -- | Take a "ParserT" transformer and apply it between m (inclusive) and n
 -- (exclusive) times. If n <= m, returns an error.
-rangeS :: Alternative t => Foldable t => Monad m
+rangeS :: Alternative t => Monad m
        => Int -> Int -> (BSParserT e m (t a) -> BSParserT e m (t a))
        -> (BSParserT e m (t a) -> BSParserT e m (t a))
 rangeS m n _ _
@@ -137,7 +150,7 @@ rangeS m n pCPS q = go m
 
 -- | Parse zero or more occurrences of the second argument separated by the
 -- first argument, followed by the last argument.
-sepBy :: Alternative t => Foldable t => Monad m
+sepBy :: Alternative t => Monad m
        => BSParserT e m s -> BSParserT e m a -> BSParserT e m (t a)
        -> BSParserT e m (t a)
 sepBy ps pa q = sepBy1 ps pa q <|> q
@@ -145,7 +158,7 @@ sepBy ps pa q = sepBy1 ps pa q <|> q
 
 -- | Take a separator parser and "ParserT" transformer, apply the latter at
 -- zero or more times.
-sepByS :: Alternative t => Foldable t => Monad m
+sepByS :: Alternative t => Monad m
        => BSParserT e m s -> (BSParserT e m (t a) -> BSParserT e m (t a))
        -> (BSParserT e m (t a) -> BSParserT e m (t a))
 sepByS ps pCPS q = sepBy1S ps pCPS q <|> q
@@ -153,7 +166,7 @@ sepByS ps pCPS q = sepBy1S ps pCPS q <|> q
 
 -- | Parse at least one occurrence of the second argument separated by the first
 -- argument, followed by the last argument.
-sepBy1 :: Alternative t => Foldable t => Monad m
+sepBy1 :: Alternative t => Monad m
        => BSParserT e m s -> BSParserT e m a -> BSParserT e m (t a)
        -> BSParserT e m (t a)
 sepBy1 ps pa q = liftM2 ((<|>) . pure) pa (many (ps >> pa) q)
@@ -161,7 +174,7 @@ sepBy1 ps pa q = liftM2 ((<|>) . pure) pa (many (ps >> pa) q)
 
 -- | Take a separator parser and "ParserT" transformer, apply the latter at
 -- least once.
-sepBy1S :: Alternative t => Foldable t => Monad m
+sepBy1S :: Alternative t => Monad m
        => BSParserT e m s -> (BSParserT e m (t a) -> BSParserT e m (t a))
        -> (BSParserT e m (t a) -> BSParserT e m (t a))
 sepBy1S ps pCPS = pCPS . manyS ((ps >>) . pCPS)
@@ -169,7 +182,7 @@ sepBy1S ps pCPS = pCPS . manyS ((ps >>) . pCPS)
 
 -- | Parse zero or more occurrences of the second argument separated by (and
 -- optionally ended with) the first argument, followed by the last argument.
-sepEndBy :: Alternative t => Foldable t => Monad m
+sepEndBy :: Alternative t => Monad m
        => BSParserT e m s -> BSParserT e m a -> BSParserT e m (t a)
        -> BSParserT e m (t a)
 sepEndBy ps pa q = sepBy ps pa (P.optional ps >> q)
@@ -177,7 +190,7 @@ sepEndBy ps pa q = sepBy ps pa (P.optional ps >> q)
 
 -- | Take a separator parser (can appear at the end) and "ParserT" transformer,
 -- apply the latter at zero or more times.
-sepEndByS :: Alternative t => Foldable t => Monad m
+sepEndByS :: Alternative t => Monad m
        => BSParserT e m s -> (BSParserT e m (t a) -> BSParserT e m (t a))
        -> (BSParserT e m (t a) -> BSParserT e m (t a))
 sepEndByS ps pCPS q = sepByS ps pCPS (P.optional ps >> q)
@@ -185,7 +198,7 @@ sepEndByS ps pCPS q = sepByS ps pCPS (P.optional ps >> q)
 
 -- | Parse at least one occurrence of the second argument separated by (and
 -- optionally ended with) the first argument, followed by the last argument.
-sepEndBy1 :: Alternative t => Foldable t => Monad m
+sepEndBy1 :: Alternative t => Monad m
        => BSParserT e m s -> BSParserT e m a -> BSParserT e m (t a)
        -> BSParserT e m (t a)
 sepEndBy1 ps pa q = sepBy1 ps pa (P.optional ps >> q)
@@ -193,7 +206,7 @@ sepEndBy1 ps pa q = sepBy1 ps pa (P.optional ps >> q)
 
 -- | Take a separator parser (can appear at the end) and "ParserT" transformer,
 -- apply the latter at least once.
-sepEndBy1S :: Alternative t => Foldable t => Monad m
+sepEndBy1S :: Alternative t => Monad m
        => BSParserT e m s -> (BSParserT e m (t a) -> BSParserT e m (t a))
        -> (BSParserT e m (t a) -> BSParserT e m (t a))
 sepEndBy1S ps pCPS q = sepBy1S ps pCPS (P.optional ps >> q)
