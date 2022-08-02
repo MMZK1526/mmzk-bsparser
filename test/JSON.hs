@@ -1,5 +1,8 @@
+-- A JSON parser following the ECMA-404 standard.
+
 import           Base
 import           Data.Char
+import           Data.List
 import           MMZK.BSParser
 import           MMZK.BSParser.Error
 import qualified MMZK.BSParser.CPS as CPS
@@ -7,11 +10,12 @@ import qualified MMZK.BSParser.Lexer as L
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.Set as S
+import           Numeric
 import           Test.HUnit
 
 main :: IO ()
-main = case parseJSON " [1, 3.2, true, \"\\u0020\", {1: null, \"b\": -2e3} ]" of
-  Left x -> print $ renderErrBundle (x :: ErrBundle String)
+main = case parseJSON "{\"1\": 1}" of
+  Left x  -> print $ renderErrBundle (x :: ErrBundle String)
   Right a -> print a
 
 data JSON = Obj [(String, JSON)]
@@ -19,10 +23,33 @@ data JSON = Obj [(String, JSON)]
           | Str String
           | Num Double
           | Lit Lit
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show JSON where
+  show json = case json of
+    Str str -> '"' : show' str ++ "\""
+    Lit lit -> show lit
+    Num num -> show num
+    Arr arr -> concat ["[", intercalate ", " $ show <$> arr, "]"]
+    Obj obj -> concat ["{", intercalate ", " $ show'' <$> obj, "}"]
+    where
+      show' ""         = ""
+      show' (ch : chs) = case ch of
+        '"'  -> shows "\\\"" $ show' chs
+        '\\' -> shows "\\\\" $ show' chs
+        _    -> if isControl ch
+          then let hex = showHex (ord ch) (show' chs)
+               in  "\\u" ++ replicate (4 - length hex) '0' ++ hex
+          else ch : show' chs
+      show'' (k, v)    = shows (Str k) $ ": " ++ show v
 
 data Lit = JTrue | JFalse | JNull
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show Lit where
+  show JTrue  = "true"
+  show JFalse = "false"
+  show JNull  = "null"
 
 parseJSON :: ByteStringLike s => s -> Either (ErrBundle String) JSON
 parseJSON = parse (L.wrapper jSpace jsonParser)
@@ -55,7 +82,7 @@ jNum = do
         Nothing -> do
           intPart <- L.digits
           choice [L.decimate (pure intPart) L.fractional, pure intPart]
-      choice [ L.scientify 10 (pure coePart) 
+      choice [ L.scientify 10 (pure coePart)
                               (choice [L.signed L.digits, pure 0])
              , pure coePart ]
 
@@ -78,7 +105,7 @@ jStr = L.char '"' <?> ["string literal"] >> inner
       case ch of
         '"'  -> pure ""
         '\\' -> do
-          esc <- pbind ( fromMaybe empty 
+          esc <- pbind ( fromMaybe empty
                        . (`lookup` [ ('"', pure '"')
                                    , ('\\', pure '\\')
                                    , ('/', pure '/')
