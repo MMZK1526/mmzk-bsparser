@@ -15,6 +15,16 @@ testValid p expected str = TestCase $ do
     Left _  -> assertFailure $ show str ++ " should succeed"
     Right a -> assertEqual ("Test parsing " ++ show str ++ ":") expected a
 
+testValid' :: Show a
+           => (String -> Either (ErrBundle String) a) -> String -> Test
+testValid' p str = TestCase $ do
+  case p str of
+    Left _  -> assertFailure $ show str ++ " should succeed"
+    Right a -> case p (show a) of
+      Left _   -> assertFailure $ show str ++ " should succeed"
+      Right a' -> assertEqual ("Test parsing " ++ show str ++ ":") (show a)
+                                                                   (show a')
+
 testInvalid :: ByteStringLike s => Show s
             => (s -> Either (ErrBundle String) a)
             -> [ErrSpan String] -> s -> Test

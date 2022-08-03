@@ -14,7 +14,7 @@ import           Numeric
 import           Test.HUnit
 
 main :: IO ()
-main = case parseJSON "{\"1\": 1}" of
+main = case parseJSON "{\"1\\n\": 1}" of
   Left x  -> print $ renderErrBundle (x :: ErrBundle String)
   Right a -> print a
 
@@ -35,8 +35,13 @@ instance Show JSON where
     where
       show' ""         = ""
       show' (ch : chs) = case ch of
-        '"'  -> shows "\\\"" $ show' chs
-        '\\' -> shows "\\\\" $ show' chs
+        '"'  -> "\\\"" ++ show' chs
+        '\\' -> "\\\\" ++ show' chs
+        '\b' -> "\\b" ++ show' chs
+        '\f' -> "\\f" ++ show' chs
+        '\n' -> "\\n" ++ show' chs
+        '\r' -> "\\r" ++ show' chs
+        '\t' -> "\\t" ++ show' chs
         _    -> if isControl ch
           then let hex = showHex (ord ch) (show' chs)
                in  "\\u" ++ replicate (4 - length hex) '0' ++ hex
@@ -91,11 +96,6 @@ jLit :: Monad m => BSParserT e m Lit
 jLit = pmap (`lookup` [("true", JTrue), ("false", JFalse), ("null", JNull)])
             L.alphas <?> ["JSON literal"]
 
--- | Parse a JSON array.
-jArr :: Monad m => BSParserT e m [JSON]
-jArr = CPS.runCPS . CPS.parens (lexer $ L.char '[') (lexer $ L.char ']')
-     $ CPS.sepBy (lexer $ L.char ',') (L.lexer jsonParser)
-
 -- | Parse a JSON string.
 jStr :: Monad m => BSParserT e m String
 jStr = L.char '"' <?> ["string literal"] >> inner
@@ -119,6 +119,11 @@ jStr = L.char '"' <?> ["string literal"] >> inner
           (esc :) <$> inner
         _    -> (ch :) <$> inner
     jCodepoint = chr . foldl ((+) . (16 *)) 0 <$> replicateM 4 L.hexDigit
+
+-- | Parse a JSON array.
+jArr :: Monad m => BSParserT e m [JSON]
+jArr = CPS.runCPS . CPS.parens (lexer $ L.char '[') (lexer $ L.char ']')
+     $ CPS.sepBy (lexer $ L.char ',') (L.lexer jsonParser)
 
 -- | Parse a JSON object.
 jObj :: Monad m => BSParserT e m [(String, JSON)]
