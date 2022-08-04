@@ -7,7 +7,7 @@ This example is a follow-up to the [Wordlist example](README.md#quickstart), whi
 To follow this example, make sure that the "playground" workspace is at the [state where we left off](examples/wordlist). The full example is also available [here](examples/wordlist_cps).
 
 ### Covered Topics
-* Use CPS parsers to build efficient string parsers.
+* Use non-recursive CPS parsers to build efficient string parsers.
 
 ### Previous Problem
 Recall our definition for `wordParser`:

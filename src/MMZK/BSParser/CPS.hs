@@ -4,7 +4,7 @@ module MMZK.BSParser.CPS
   ( cons, many, some, manyS, someS, digitsStr, hexDigitsStr, octDigitsStr
   , binDigitsStr, string, optional, optionalS, range, rangeS, sepBy1
   , sepBy1S, sepBy, sepByS, sepEndBy, sepEndByS, sepEndBy1, sepEndBy1S
-  , alphas, alphaDigits, identifier, parens, runCPS ) where
+  , alphas, alphaDigits, identifier, parens, runCPS, choice ) where
 
 import           Control.Monad
 import           Control.Applicative (Alternative, liftA2, empty, (<|>))
@@ -50,17 +50,24 @@ rangeL m n p q = go m
 --------------------------------------------------------------------------------
 
 -- | Turns a CPS parser into a normal one by applying with @pure empty@.
-runCPS :: Alternative t => Monad m
-       => (BSParserT e m (t a) -> BSParserT e m (t a)) -> BSParserT e m (t a)
-runCPS pCPS = pCPS (pure empty)
+runCPS :: Monoid a => Monad m
+       => (BSParserT e m a -> BSParserT e m a) -> BSParserT e m a
+runCPS pCPS = pCPS (pure mempty)
 
 -- | Parse for left paren, content, and right paren, returning only the content.
-parens :: Alternative t => Monad m
+parens :: Monad m
        => BSParserT e m o -> BSParserT e m c
-       -> (BSParserT e m (t a) -> BSParserT e m (t a))
-       -> (BSParserT e m (t a) -> BSParserT e m (t a))
+       -> (BSParserT e m a -> BSParserT e m a)
+       -> (BSParserT e m a -> BSParserT e m a)
 parens po pc pCPS = (po >>) . pCPS . (pc >>)
 {-# INLINE [2] parens #-}
+
+-- | Try all of the CPS parsers until one of them parses successfully.
+choice :: Monad m
+       => [BSParserT e m a -> BSParserT e m a]
+       -> (BSParserT e m a -> BSParserT e m a)
+choice pCPSs q = msum (($ q) <$> pCPSs)
+{-# INLINE [2] choice #-}
 
 -- | Parse with the first argument followed by the second argument.
 cons :: Alternative t => Monad m
@@ -78,9 +85,9 @@ many p q = msum [liftA2 ((<|>) . pure) p (many p q), q]
 {-# RULES "many/[]" [~2] many = manyL #-}
 
 -- | Take a "ParserT" transformer and apply it zero, one, or more times.
-manyS :: Alternative t => Monad m
-      => (BSParserT e m (t a) -> BSParserT e m (t a))
-      -> (BSParserT e m (t a) -> BSParserT e m (t a))
+manyS :: Monoid a => Monad m
+      => (BSParserT e m a -> BSParserT e m a)
+      -> (BSParserT e m a -> BSParserT e m a)
 manyS pCPS q = msum [pCPS $ msum [manyS pCPS q, q], q]
 {-# NOINLINE [2] manyS #-}
 
@@ -94,9 +101,9 @@ some p q = liftA2 ((<|>) . pure) p
 {-# RULES "some/[]" [~2] some = someL #-}
 
 -- | Take a "ParserT" transformer and apply it one or more times.
-someS :: Alternative t => Monad m
-      => (BSParserT e m (t a) -> BSParserT e m (t a))
-      -> (BSParserT e m (t a) -> BSParserT e m (t a))
+someS :: Monoid a => Monad m
+      => (BSParserT e m a -> BSParserT e m a)
+      -> (BSParserT e m a -> BSParserT e m a)
 someS pCPS q = pCPS $ msum [someS pCPS q, q]
 {-# NOINLINE [2] someS #-}
 
@@ -158,9 +165,9 @@ sepBy ps pa q = sepBy1 ps pa q <|> q
 
 -- | Take a separator parser and "ParserT" transformer, apply the latter at
 -- zero or more times.
-sepByS :: Alternative t => Monad m
-       => BSParserT e m s -> (BSParserT e m (t a) -> BSParserT e m (t a))
-       -> (BSParserT e m (t a) -> BSParserT e m (t a))
+sepByS :: Monoid a => Monad m
+       => BSParserT e m s -> (BSParserT e m a -> BSParserT e m a)
+       -> (BSParserT e m a -> BSParserT e m a)
 sepByS ps pCPS q = sepBy1S ps pCPS q <|> q
 {-# INLINE [2] sepByS #-}
 
@@ -174,9 +181,9 @@ sepBy1 ps pa q = liftM2 ((<|>) . pure) pa (many (ps >> pa) q)
 
 -- | Take a separator parser and "ParserT" transformer, apply the latter at
 -- least once.
-sepBy1S :: Alternative t => Monad m
-       => BSParserT e m s -> (BSParserT e m (t a) -> BSParserT e m (t a))
-       -> (BSParserT e m (t a) -> BSParserT e m (t a))
+sepBy1S :: Monoid a => Monad m
+       => BSParserT e m s -> (BSParserT e m a -> BSParserT e m a)
+       -> (BSParserT e m a -> BSParserT e m a)
 sepBy1S ps pCPS = pCPS . manyS ((ps >>) . pCPS)
 {-# INLINE [2] sepBy1S #-}
 
@@ -190,9 +197,9 @@ sepEndBy ps pa q = sepBy ps pa (P.optional ps >> q)
 
 -- | Take a separator parser (can appear at the end) and "ParserT" transformer,
 -- apply the latter at zero or more times.
-sepEndByS :: Alternative t => Monad m
-       => BSParserT e m s -> (BSParserT e m (t a) -> BSParserT e m (t a))
-       -> (BSParserT e m (t a) -> BSParserT e m (t a))
+sepEndByS :: Monoid a => Monad m
+       => BSParserT e m s -> (BSParserT e m a -> BSParserT e m a)
+       -> (BSParserT e m a -> BSParserT e m a)
 sepEndByS ps pCPS q = sepByS ps pCPS (P.optional ps >> q)
 {-# INLINE [2] sepEndByS #-}
 
@@ -206,9 +213,9 @@ sepEndBy1 ps pa q = sepBy1 ps pa (P.optional ps >> q)
 
 -- | Take a separator parser (can appear at the end) and "ParserT" transformer,
 -- apply the latter at least once.
-sepEndBy1S :: Alternative t => Monad m
-       => BSParserT e m s -> (BSParserT e m (t a) -> BSParserT e m (t a))
-       -> (BSParserT e m (t a) -> BSParserT e m (t a))
+sepEndBy1S :: Monoid a => Monad m
+       => BSParserT e m s -> (BSParserT e m a -> BSParserT e m a)
+       -> (BSParserT e m a -> BSParserT e m a)
 sepEndBy1S ps pCPS q = sepBy1S ps pCPS (P.optional ps >> q)
 {-# INLINE [2] sepEndBy1S #-}
 

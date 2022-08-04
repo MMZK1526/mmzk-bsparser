@@ -3,8 +3,12 @@
 
 module MMZK.BSParser.ASCII where
 
+import           Data.Foldable
+import qualified Data.Map as M
+import qualified Data.Set as S
 import           MMZK.BSParser.Convert
 import           MMZK.BSParser.Parser
+import           MMZK.BSParser.Error
 import qualified MMZK.BSParser.Word8 as P8
 
 
@@ -23,7 +27,7 @@ wrapper bp p = setSpaceParser bp >> bp >> p <* eof
 -- Use it with care if the list of tokens contains non-Latin-1 codepoints since
 -- it may extract a fragment of a codepoint.
 char :: Monad m => Char -> BSParserT e m Char
-char = satisfyL1 . (==)
+char ch = satisfyL1 (== ch) <??> M.singleton Nothing (S.singleton $ CToken ch)
 {-# INLINE [2] char #-}
 
 -- | Succeed iff the "BSParserT" fails. Will not consume any input or modify any
@@ -42,6 +46,7 @@ eof = P8.eof
 -- it may extract a fragment of a codepoint.
 oneOf :: Monad m => Foldable t => t Char -> BSParserT e m Char
 oneOf chs = satisfyL1 (`elem` chs)
+       <??> M.singleton Nothing (S.fromList $ CToken <$> toList chs)
 {-# INLINE [2] oneOf #-}
 
 -- | Parse the SPACE character (空格), namely 32.
