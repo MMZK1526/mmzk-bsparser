@@ -4,7 +4,8 @@ module MMZK.BSParser.CPS
   ( cons, many, some, manyS, someS, digitsStr, hexDigitsStr, octDigitsStr
   , binDigitsStr, string, optional, optionalS, range, rangeS, sepBy1
   , sepBy1S, sepBy, sepByS, sepEndBy, sepEndByS, sepEndBy1, sepEndBy1S
-  , alphas, alphaDigits, identifier, parens, runCPS, choice ) where
+  , alphas, alphaDigits, identifier, parens, runCPS, choice, lexer, wrapper
+  ) where
 
 import           Control.Monad
 import           Control.Applicative (Alternative, liftA2, empty, (<|>))
@@ -53,6 +54,22 @@ rangeL m n p q = go m
 runCPS :: Monoid a => Monad m
        => (BSParserT e m a -> BSParserT e m a) -> BSParserT e m a
 runCPS pCPS = pCPS (pure mempty)
+
+-- | Use the CPS parser, then consume the spaces that follows. Spaces are
+-- defined by "spaceParser" of "ParseState", which is by default @pure ()@.
+lexer :: Monad m
+      => (BSParserT e m a -> BSParserT e m a)
+      -> (BSParserT e m a -> BSParserT e m a)
+lexer = (. ((P.spaceParser =<< P.getState) >>))
+{-# INLINE [2] lexer #-}
+
+-- | Set "spaceParser", use it to ignore leading spaces, run the CPS parser,
+-- and use "eof" to reject extraneous inputs.
+wrapper :: Monoid a => Monad m
+        => BSParserT e m b -> (BSParserT e m a -> BSParserT e m a)
+        -> BSParserT e m a
+wrapper bp pCPS = P.setSpaceParser bp >> bp >> runCPS (pCPS . (<* L.eof))
+{-# INLINE [2] wrapper #-}
 
 -- | Parse for left paren, content, and right paren, returning only the content.
 parens :: Monad m

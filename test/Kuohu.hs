@@ -77,24 +77,27 @@ testMalformedPairs = TestLabel "Malformed pairs"
                    $ TestList [ testInvalid parseKuohu [err1] mismatchPairs
                               , testInvalid parseKuohu [err2] badOrder ]
   where
-    err1 = ErrSpan 
+    err1 = ErrSpan
         { esLoc   = (14, 14)
-        , esError = BasicErr 
+        , esError = BasicErr
             { unexpected  = UItem Nothing (Just (CToken '}'))
             , expecting   = M.fromList [( Nothing
                                         , S.fromList [ CToken '(', CToken ')'
                                                      , CToken '<', CToken '['
-                                                     , CToken '{' ])]
+                                                     , CToken '{' ] )]
             , errMessages = [] } }
-    err2 = ErrSpan 
+    err2 = ErrSpan
         { esLoc   = (0, 0)
-        , esError = BasicErr 
+        , esError = BasicErr
             { unexpected  = UItem Nothing (Just (CToken ')'))
-            , expecting   = M.fromList [(Nothing, S.fromList [EOI])]
+            , expecting   = M.fromList [( Nothing
+                                        , S.fromList [ CToken '(', CToken '<'
+                                                     , CToken '[', CToken '{'
+                                                     , EOI ] )]
             , errMessages = [] } }
 
 parseKuohu :: ByteStringLike s => s -> Either (ErrBundle String) Kuohu
-parseKuohu = parse (CPS.runCPS kuohuCPS <* PA.eof)
+parseKuohu = parse (CPS.wrapper (pure ()) kuohuCPS)
 
 kuohuCPS :: Parser Kuohu -> Parser Kuohu
 kuohuCPS = CPS.manyS ((prune >>) . singleNestParser)
