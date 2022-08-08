@@ -51,22 +51,22 @@ rangeL m n p q = go m
 --------------------------------------------------------------------------------
 
 -- | Turns a CPS parser into a normal one by applying with @pure empty@.
-runCPS :: Monoid a => Monad m
-       => (BSParserT e m a -> BSParserT e m a) -> BSParserT e m a
+runCPS :: Monoid b => Monad m
+       => (BSParserT e m b -> BSParserT e m a) -> BSParserT e m a
 runCPS pCPS = pCPS (pure mempty)
 
 -- | Use the CPS parser, then consume the spaces that follows. Spaces are
 -- defined by "spaceParser" of "ParseState", which is by default @pure ()@.
 lexer :: Monad m
-      => (BSParserT e m a -> BSParserT e m a)
-      -> (BSParserT e m a -> BSParserT e m a)
+      => (BSParserT e m b -> BSParserT e m a)
+      -> (BSParserT e m b -> BSParserT e m a)
 lexer = (. ((P.spaceParser =<< P.getState) >>))
 {-# INLINE [2] lexer #-}
 
 -- | Set "spaceParser", use it to ignore leading spaces, run the CPS parser,
 -- and use "eof" to reject extraneous inputs.
-wrapper :: Monoid a => Monad m
-        => BSParserT e m b -> (BSParserT e m a -> BSParserT e m a)
+wrapper :: Monoid b => Monad m
+        => BSParserT e m x -> (BSParserT e m b -> BSParserT e m a)
         -> BSParserT e m a
 wrapper bp pCPS = P.setSpaceParser bp >> bp >> runCPS (pCPS . (<* L.eof))
 {-# INLINE [2] wrapper #-}
@@ -74,15 +74,15 @@ wrapper bp pCPS = P.setSpaceParser bp >> bp >> runCPS (pCPS . (<* L.eof))
 -- | Parse for left paren, content, and right paren, returning only the content.
 parens :: Monad m
        => BSParserT e m o -> BSParserT e m c
-       -> (BSParserT e m a -> BSParserT e m a)
-       -> (BSParserT e m a -> BSParserT e m a)
+       -> (BSParserT e m b -> BSParserT e m a)
+       -> (BSParserT e m b -> BSParserT e m a)
 parens po pc pCPS = (po >>) . pCPS . (pc >>)
 {-# INLINE [2] parens #-}
 
 -- | Try all of the CPS parsers until one of them parses successfully.
 choice :: Monad m
-       => [BSParserT e m a -> BSParserT e m a]
-       -> (BSParserT e m a -> BSParserT e m a)
+       => [BSParserT e m b -> BSParserT e m a]
+       -> (BSParserT e m b -> BSParserT e m a)
 choice pCPSs q = msum (($ q) <$> pCPSs)
 {-# INLINE [2] choice #-}
 
