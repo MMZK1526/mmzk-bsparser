@@ -8,7 +8,10 @@ For a quick example on how to install and use this library, check [here](#quicks
 The library is one of my side-projects and is inspired by many other in functional programming languages, such as [megaparsec](https://hackage.haskell.org/package/megaparsecs) and [parsley](https://index.scala-lang.org/http4s/parsley). In particular, the author of `parsley` has given my teammates and me valuable advices regarding the design and usage of parser combinators during our compiler coursework. In parallel to its development, I am also planning to use it to make parsers for a number of different grammars, including JSON and BSON.
 
 ## Contents
-TODO
+1. [Installation](#installation)
+2. [Quickstart](#quickstart)
+3. [Examples](EXAMPLES.md)
+4. [Documentation](#documentation)
 
 ## Installation
 Since this library is not yet published, we need to install it manually before using it. Before installation, we assume that `GHC` and `cabal` are available ([here](https://www.haskell.org/cabal/) on how to install them).
