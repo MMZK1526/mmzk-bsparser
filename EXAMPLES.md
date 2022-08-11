@@ -1,13 +1,141 @@
 # Examples
 To follow these examples, we need to [install the library](README.md#installation) first. It is also recommended to create a new ["playground" workspace](README.md#installation) as it will be assumed to exist in all example.
 
+## Contents
+1. [Kuohu](#kuohu)
+2. [Wordlist-CPS](#wordlist-cps)
+3. [Kuohu-CPS](#kuohu-cps)
+
+## Kuohu
+In this example, we will parse a simple structure of "well-defined" parantheses and square brackets such that all pairs match. For instance, "([])()" is well-defined because each left parenthesis matches with a right parenthesis, and vice versa. On the other hand, "(]" is not well-defined since "]" does not match with "(".
+
+The full example is available [here](examples/kuohu).
+
+### Covered Topics
+* Use basic lexers to parse a single given character
+* Simple recursive descent
+* Use the combinator `parens` to build parsers that parse a pattern enclosed between a pair of brackets
+
+### Preparation
+As usual, in "app/Main.hs", replace the existing code with the following:
+
+```Haskell
+import           Data.Char
+import           MMZK.BSParser
+import qualified MMZK.BSParser.Lexer as L
+
+-- | A basic parser type that uses "String" as the custom error type.
+type Parser a = BSParser String a
+
+test :: Show a => Parser a -> String -> IO ()
+test parser inputStr = putStrLn $ case parse (parser <* L.eof) inputStr of
+  Right a  -> show a
+  Left err -> renderErrBundleAsStr err
+```
+
+We then define the `Kuohu`[^1] data structure as following:
+
+```Haskell
+data Kuohu = Empty
+           | Apply [Kuohu]
+           | Paren Kuohu
+           | Brack Kuohu
+  deriving Show
+```
+
+For example, "([])()" would be parsed into `Apply [Paren (Brack Empty), Paren Empty]`. Note that we allow the empty string "".
+
+### Recursive Descent
+Recursive descent is an important concept for parser combinators. It is a top-down approach which structure closely resembles the grammar. For example, we can write the grammar of our `Kuohu` as the following:
+
+```EBNF
+Kuohu  := {Single}
+Single := '(' Kuohu ')' | '[' Kuohu ']'
+```
+
+Here, `Kuohu` represents the entire string of brackets while `Single` represents one nested component. To parse a `S` (for instance "([])()"), assuming that we already know how to parse `Single`, we then simply need to apply the `many` combinator with the `Single` parser. Thus we can write something like:
+
+```Haskell
+-- The "Kuohu" parser.
+kuohuParser :: Parser Kuohu
+kuohuParser = do
+  kuohus <- many singleParser -- "singleParser" parses a single nested component
+  return $ case kuohus of
+    []      -> Empty
+    [kuohu] -> kuohu
+    _       -> Apply kuohus
+
+-- | The "Single" parser.
+singleParser :: Parser Kuohu
+singleParser = do
+  undefined -- Not implemented yet
+```
+
+To parse a `Single` (for instance "([])"), we need to first parse a left bracket, then use the parser for the entire structure (`Kuohu`), and finally parse a matching right bracket. Note that here we are "recursively using" `kuohuParser` within `singleParser`. There are two types of opening brackets, namely '(' and '[', and we will start by only considering the former:
+
+```Haskell
+-- | The "Single" parser.
+singleParser :: Parser Kuohu
+singleParser = do
+  innerKuohu <- parens (L.char '(') (L.char ')') kuohuParser
+  return (Paren innerKuohu)
+```
+
+The combinator `parens` takes a parser for the left bracket, a parser for the right bracket, then a parser for the content between them. It basically parses "(...)" where "..." itself can be parsed into a `Kuohu`. As we can see, here we have a recursive pattern between `kuohuParser` and `singleParser` that looks identical to our grammer, which also has recursion.
+
+Now we can try to test for strings fully comprised of '('s and ')'s. To test our parser, run `cabal repl` from the root directory of "playground":
+
+```txt
+> test kuohuParser "()"
+Paren Empty
+> test kuohuParser "()(())()"
+Apply [Paren Empty,Paren (Paren Empty),Paren Empty]
+> test kuohuParser "(]"
+Syntax error at row 1 col 2:
+  Unexpected ']'.
+  Expecting ')'.
+```
+
+Lastly, to also parse for square brackets, use the combinator `choice`:
+
+```Haskell
+-- | The "Single" parser.
+singleParser :: Parser Kuohu
+singleParser = choice [ do innerKuohu <- parens (L.char '(') (L.char ')') kuohuParser
+                           return (Paren innerKuohu)
+                      , do innerKuohu <- parens (L.char '[') (L.char ']') kuohuParser
+                           return (Brack innerKuohu) ]
+```
+
+Of course, we can simplify the inner `do`-notations with functor operation. We also use `prune` to avoid backtracking, since if the parser fails in after successfully parsing a '(', there is no point to try '['.
+
+```Haskell
+-- | The "Single" parser.
+singleParser :: Parser Kuohu
+singleParser = prune
+          >> choice [ Paren <$> parens (L.char '(') (L.char ')') kuohuParser
+                    , Brack <$> parens (L.char '[') (L.char ']') kuohuParser ]
+```
+
+Now we can handle mixed brackets:
+
+```txt
+> test kuohuParser "([])[()]"
+Apply [Paren (Brack Empty),Brack (Paren Empty)]
+```
+
+### Conclusion
+By this point, we have completed this simple parser for nested brackets. It is also easy to add more types of brackets, such as braces and chevrons, as demonstrated in [one of the test files](test/Kuohu.hs).
+
+However, there remains one more niche regarding the error message. Taking `(]` as an example, clearly it is an invalid `Kuohu` since ']' does not match with '(', which is what the error message would describe. However, it is also valid to enter another left bracket as long as it is matched later on, but the error message does not include them since it does not know what will follow. If we want the error message to also expect for '(' and '[', we can use the CPS version, which tutorial can be found [here](#kuohu-cps).
+
 ## Wordlist-CPS
 This example is a follow-up to the [Wordlist example](README.md#quickstart), which is a simple parser that takes a "Wordlist" separated by commas and produces a list of words. For example, the input "apple, banana, cherry" would be parsed into the list `["apple", "banana", "cherry"]`. By the end of that tutorial, we managed to handle words that contain dashes and apostrophes, however, the way we did it is not the most efficient, and here we are going to explore how to combine string parsers with the CPS parsers.
 
 To follow this example, make sure that the "playground" workspace is at the [state where we left off](examples/wordlist). The full example is also available [here](examples/wordlist_cps).
 
 ### Covered Topics
-* Use non-recursive CPS parsers to build efficient string parsers.
+* Use non-recursive CPS combinators to build efficient string parsers
 
 ### Previous Problem
 Recall our definition for `wordParser`:
@@ -127,3 +255,8 @@ Syntax error at row 1 col 8:
   Unexpected '-'.
   Expecting ascii letter.
 ```
+
+## Kuohu-CPS
+TODO
+
+[^1]: "Kuohu" (括弧) means all kinds of brackets, including round ones, square ones, braces, chevrons, and so on. In our example, however, we only deal with round and square brackets for simplicity.
