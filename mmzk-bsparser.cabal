@@ -33,6 +33,7 @@ library
         MMZK.BSParser.ASCII,
         MMZK.BSParser.CPS,
         MMZK.BSParser.Error,
+        MMZK.BSParser.Expr,
         MMZK.BSParser.Lexer,
         MMZK.BSParser.Word8
 

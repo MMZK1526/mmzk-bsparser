@@ -3,8 +3,9 @@ To follow these examples, we need to [install the library](README.md#installatio
 
 ## Contents
 1. [Kuohu](#kuohu)
-2. [Wordlist-CPS](#wordlist-cps)
-3. [Kuohu-CPS](#kuohu-cps)
+2. [JSON](#json)
+3. [Wordlist-CPS](#wordlist-cps)
+4. [Kuohu-CPS](#kuohu-cps)
 
 ## Kuohu
 In this example, we will parse a simple structure of "well-defined" parantheses and square brackets such that all pairs match. For instance, "([])()" is well-defined because each left parenthesis matches with a right parenthesis, and vice versa. On the other hand, "(]" is not well-defined since "]" does not match with "(".
@@ -128,6 +129,9 @@ Apply [Paren (Brack Empty),Brack (Paren Empty)]
 By this point, we have completed this simple parser for nested brackets. It is also easy to add more types of brackets, such as braces and chevrons, as demonstrated in [one of the test files](test/Kuohu.hs).
 
 However, there remains one more niche regarding the error message. Taking `(]` as an example, clearly it is an invalid `Kuohu` since ']' does not match with '(', which is what the error message would describe. However, it is also valid to enter another left bracket as long as it is matched later on, but the error message does not include them since it does not know what will follow. If we want the error message to also expect for '(' and '[', we can use the CPS version, which tutorial can be found [here](#kuohu-cps).
+
+## JSON
+TODO
 
 ## Wordlist-CPS
 This example is a follow-up to the [Wordlist example](README.md#quickstart), which is a simple parser that takes a "Wordlist" separated by commas and produces a list of words. For example, the input "apple, banana, cherry" would be parsed into the list `["apple", "banana", "cherry"]`. By the end of that tutorial, we managed to handle words that contain dashes and apostrophes, however, the way we did it is not the most efficient, and here we are going to explore how to combine string parsers with the CPS parsers.
