@@ -24,14 +24,14 @@ calculator :: Parser Integer
 calculator = mkExpr (choice [ lexer $ L.signed L.digits
                             , parens (lexer $ L.char '(') (lexer $ L.char ')') 
                                      calculator ]) 
-                    [ [ BiOp ALeft ((+) <$ (lexer $ L.char '+'))
-                      , BiOp ALeft ((-) <$ (lexer $ L.char '-')) ]
-                    , [ BiOp ALeft ((*) <$ (lexer $ L.char '*'))
-                      , BiOp ALeft (div <$ (lexer $ L.char '/')) ]
-                    , [ Pref (succ <$ (lexer $ L.string "++"))
-                      , Pref (pred <$ (lexer $ L.string "--")) ]
-                    , [ Suff (succ <$ (lexer $ L.string "++"))
-                      , Suff (pred <$ (lexer $ L.string "--")) ] ]
+                    [ [ infixL (+) (lexer $ L.char '+')
+                      , infixL (-) (lexer $ L.char '-') ]
+                    , [ infixL (*) (lexer $ L.char '*')
+                      , infixL div (lexer $ L.char '/') ]
+                    , [ prefix succ (lexer $ L.string "++")
+                      , prefix pred (lexer $ L.string "--")
+                      , postfix succ (lexer $ L.string "++")
+                      , postfix pred (lexer $ L.string "--") ] ]
 
 -- calculator :: Parser Integer
 -- calculator = do
