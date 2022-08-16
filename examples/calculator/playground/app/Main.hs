@@ -27,7 +27,11 @@ calculator = mkExpr (choice [ lexer $ L.signed L.digits
                     [ [ BiOp ALeft ((+) <$ (lexer $ L.char '+'))
                       , BiOp ALeft ((-) <$ (lexer $ L.char '-')) ]
                     , [ BiOp ALeft ((*) <$ (lexer $ L.char '*'))
-                      , BiOp ALeft (div <$ (lexer $ L.char '/')) ] ]
+                      , BiOp ALeft (div <$ (lexer $ L.char '/')) ]
+                    , [ Pref (succ <$ (lexer $ L.string "++"))
+                      , Pref (pred <$ (lexer $ L.string "--")) ]
+                    , [ Suff (succ <$ (lexer $ L.string "++"))
+                      , Suff (pred <$ (lexer $ L.string "--")) ] ]
 
 -- calculator :: Parser Integer
 -- calculator = do

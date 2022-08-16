@@ -5,7 +5,7 @@
 module MMZK.BSParser.Expr (BSAssoc(..), BSExprT(..), BSExpr, mkExpr) where
 
 import           Control.Applicative
-import            Control.Monad
+import           Control.Monad
 import           Data.Functor.Identity
 import           MMZK.BSParser.Parser (BSParserT)
 
