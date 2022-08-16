@@ -22,11 +22,12 @@ test parser inputStr = case parse (L.wrapper (many L.space) parser) inputStr of
 
 calculator :: Parser Integer
 calculator = mkExpr (choice [ lexer $ L.signed L.digits
-                            , parens (lexer $ L.char '(') (lexer $ L.char ')') calculator ]) 
-                    [ EBiOp [ BiOp ALeft ((+) <$ (lexer $ L.char '+'))
-                            , BiOp ALeft ((-) <$ (lexer $ L.char '-')) ]
-                    , EBiOp [ BiOp ALeft ((*) <$ (lexer $ L.char '*'))
-                            , BiOp ALeft (div <$ (lexer $ L.char '/')) ] ]
+                            , parens (lexer $ L.char '(') (lexer $ L.char ')') 
+                                     calculator ]) 
+                    [ [ BiOp ALeft ((+) <$ (lexer $ L.char '+'))
+                      , BiOp ALeft ((-) <$ (lexer $ L.char '-')) ]
+                    , [ BiOp ALeft ((*) <$ (lexer $ L.char '*'))
+                      , BiOp ALeft (div <$ (lexer $ L.char '/')) ] ]
 
 -- calculator :: Parser Integer
 -- calculator = do
