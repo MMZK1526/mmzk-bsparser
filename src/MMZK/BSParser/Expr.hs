@@ -41,15 +41,48 @@ _runExprs = go 0
 -- with infix, prefix, and postfix operators of various precedence and
 -- associativity.
 --
--- For example, the following is a parser that serves as a calculator for integral arithmetics.
+-- The first argument parses literals of the expression, while the second
+-- describes how to parse for the various operators.
+--
+-- The former is a "BSParserT". If the expression has grammatic rules that
+-- overrides operator precedency (such as parenthesis), it should be treated as
+-- literal rules.
+--
+-- The latter is a list of list of "BSExprT", each contains a "BSParserT" that
+-- produces either an infix operator (a -> a -> a) or a prefix/postfix operator
+-- (a -> a). Operators listed in the same minor list have the same level of
+-- precedence, while the elements of the major list represent precedences from
+-- lowest to highest.
+--
+-- Infix operators also come with an associativity rule, which can be
+-- left-associative (@ALeft@), right-associative (@ARight@), or non-associative
+-- (@ANone@). Multiple operators of the same precedence level but with different
+-- associativity cannot appear together without explicit ordering, which depends
+-- on the grammar of the expression but is usually specified by parenthesis.
+-- Similarly, more than one non-associative operators of the same precedence
+-- level cannot appear together without explicit ordering.
+--
+-- When prefix and postfix operators apply to the same literal, if they have
+-- the same precedence, the order of application favours the one that appears
+-- earlier in their minor list.
+--
+-- When reaching a combination of a prefix operator and a literal, this parser
+-- eagerly parses for the prefix operator. For example, if "-" is both a numeral
+-- sign and an operator for negation, the parser will consider "-9" as the
+-- application of the negation operator on the literal "9". Similarly, it
+-- eagerly parses for literals before attempting to parse postfix operators.
+--
+-- The following example is a parser that serves as a calculator for integral
+-- arithmetics:
+--
 -- > calculator :: Parser Integer
 -- > calculator = mkExpr (choice [ lexer $ L.signed L.digits
 -- >                             , parens (lexer $ L.char '(') (lexer $ L.char ')')
 -- >                                      calculator ])
--- >                             [ [ BiOp ALeft ((+) <$ (lexer $ L.char '+'))
--- >                               , BiOp ALeft ((-) <$ (lexer $ L.char '-')) ]
--- >                             , [ BiOp ALeft ((*) <$ (lexer $ L.char '*'))
--- >                               , BiOp ALeft (div <$ (lexer $ L.char '/')) ] ]
+-- >                             [ [ infixL (+) (lexer $ L.char '+')
+-- >                               , infixL (-) (lexer $ L.char '-') ]
+-- >                             , [ infixL (*) (lexer $ L.char '*')
+-- >                               , infixL div (lexer $ L.char '/') ]
 mkExpr :: Monad m => BSParserT e m a -> [[BSExprT e m a]] -> BSParserT e m a
 mkExpr lit []                  = lit
 mkExpr lit (exprs : exprTable) = do
