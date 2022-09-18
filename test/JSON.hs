@@ -94,7 +94,7 @@ jNum = do
 -- | Parse "true", "false", and "null".
 jLit :: Monad m => BSParserT e m Lit
 jLit = pmap (`lookup` [("true", JTrue), ("false", JFalse), ("null", JNull)])
-            L.alphaNums <?> ["JSON literal"]
+            L.identifier <?> ["JSON literal"]
 
 -- | Parse a JSON string.
 jStr :: Monad m => BSParserT e m String

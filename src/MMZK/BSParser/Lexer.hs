@@ -97,9 +97,9 @@ alphaNums = some alphaNum
 {-# INLINE [2] alphaNums #-}
 
 -- | Parse a string of alphabetic Unicode characters, digits, or underscores,
--- but not starting with a digitChar.
+-- but not starting with a digit.
 identifier :: Monad m => BSParserT e m String
-identifier = liftM2 (:) alphaDigit
+identifier = liftM2 (:) (satisfy (\ch -> isAlpha ch || ch == '_'))
            $ many (satisfy (\ch -> isAlpha ch || isDigit ch || ch == '_'))
 {-# INLINE [2] identifier #-}
 

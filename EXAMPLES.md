@@ -154,13 +154,13 @@ jLit :: Monad m => BSParserT e m Lit
 jLit = choice [JTrue <$ L.string "true", JFalse <$ L.string "false", JNull <$ L.string "null"]
 ```
 
-This parser has the correct behaviour, may produce less informative error messages. For example, if the input is "true666", it will throw an error at the first '6' instead of treating the entire string as a whole. Therefore, an improvement would be to parse for a 
+This parser has the correct behaviour, may produce less informative error messages. For example, if the input is "true666", it will throw an error at the first '6' instead of treating the entire string as a whole. Therefore, an improvement would be to parse for a string of identifier (letters or digits, but not starting with a digit).
 
 ```Haskell
 -- | Parse "true", "false", and "null".
 jLit :: Monad m => BSParserT e m Lit
 jLit = pmap (`lookup` [("true", JTrue), ("false", JFalse), ("null", JNull)])
-            L.alphas <?> ["JSON literal"]
+            L.identifier <?> ["JSON literal"]
 ```
 
 Here we use the combinator `pmap`, which takes a parser (here it is `alphas` that parses at least one letter) and a partial function from the result parsed by the parser to the `Lit` data type. If the result from `alphas` is "true", "false", or "null", it is translated into the corresponding `Lit` value. Otherwise, the `lookup` results in `Nothing`, which fails the parser.
