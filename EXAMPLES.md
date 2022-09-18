@@ -131,7 +131,39 @@ By this point, we have completed this simple parser for nested brackets. It is a
 However, there remains one more niche regarding the error message. Taking `(]` as an example, clearly it is an invalid `Kuohu` since ']' does not match with '(', which is what the error message would describe. However, it is also valid to enter another left bracket as long as it is matched later on, but the error message does not include them since it does not know what will follow. If we want the error message to also expect for '(' and '[', we can use the CPS version, which tutorial can be found [here](#kuohu-cps).
 
 ## JSON
-TODO
+This JSON parser follows the [ECMA-404 JSON Data Interchange Standard](https://www.ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
+
+In JSON, there are six types of values, namely object, array, string, number, boolean, and null. Below is the data type that we will parse the JSON string into. For simplicity, we combine boolean (true and false) with null into a single constructor.
+
+```Haskell
+data JSON = Obj [(String, JSON)] -- ^ object
+          | Arr [JSON]           -- ^ array
+          | Str String           -- ^ string
+          | Num Double           -- ^ number (the JSON standard does not specify the precision; here we use Double)
+          | Lit Lit              -- ^ boolean or null
+  deriving (Eq, Ord)
+
+data Lit = JTrue | JFalse | JNull
+  deriving (Eq, Ord)
+```
+
+Among the parsers for these constructors, the simplest one is natually the parser for `Lit`. A simple solution would be to use `choice` for the three cases:
+```Haskell
+-- | Parse "true", "false", and "null".
+jLit :: Monad m => BSParserT e m Lit
+jLit = choice [JTrue <$ L.string "true", JFalse <$ L.string "false", JNull <$ L.string "null"]
+```
+
+This parser has the correct behaviour, may produce less informative error messages. For example, if the input is "true666", it will throw an error at the first '6' instead of treating the entire string as a whole. Therefore, an improvement would be to parse for a 
+
+```Haskell
+-- | Parse "true", "false", and "null".
+jLit :: Monad m => BSParserT e m Lit
+jLit = pmap (`lookup` [("true", JTrue), ("false", JFalse), ("null", JNull)])
+            L.alphas <?> ["JSON literal"]
+```
+
+Here we use the combinator `pmap`, which takes a parser (here it is `alphas` that parses at least one letter) and a partial function from the result parsed by the parser to the `Lit` data type. If the result from `alphas` is "true", "false", or "null", it is translated into the corresponding `Lit` value. Otherwise, the `lookup` results in `Nothing`, which fails the parser.
 
 ## Wordlist-CPS
 This example is a follow-up to the [Wordlist example](README.md#quickstart), which is a simple parser that takes a "Wordlist" separated by commas and produces a list of words. For example, the input "apple, banana, cherry" would be parsed into the list `["apple", "banana", "cherry"]`. By the end of that tutorial, we managed to handle words that contain dashes and apostrophes, however, the way we did it is not the most efficient, and here we are going to explore how to combine string parsers with the CPS parsers.

@@ -91,6 +91,11 @@ alphaDigits :: Monad m => BSParserT e m String
 alphaDigits = some alphaDigit
 {-# INLINE [2] alphaDigits #-}
 
+-- | Parse a str Categories.
+alphaNums :: Monad m => BSParserT e m String
+alphaNums = some alphaNum
+{-# INLINE [2] alphaNums #-}
+
 -- | Parse a string of alphabetic Unicode characters, digits, or underscores,
 -- but not starting with a digitChar.
 identifier :: Monad m => BSParserT e m String
