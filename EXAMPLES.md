@@ -154,7 +154,7 @@ jLit :: Monad m => BSParserT e m Lit
 jLit = choice [JTrue <$ L.string "true", JFalse <$ L.string "false", JNull <$ L.string "null"]
 ```
 
-This parser has the correct behaviour, may produce less informative error messages. For example, if the input is "true666", it will throw an error at the first '6' instead of treating the entire string as a whole. Therefore, an improvement would be to parse for a string of identifier (letters or digits, but not starting with a digit).
+This parser has the correct behaviour, may produce less informative error messages. For example, if the input is "true666", it will throw an error at the first '6' instead of treating the entire string as a whole. Therefore, an improvement would be to parse for a string of identifier (letters or digits, but not starting with a digit), then check if it is one of "true", "false", or "null".
 
 ```Haskell
 -- | Parse "true", "false", and "null".
@@ -251,14 +251,14 @@ In fact, we can even do better. There is also a CPS variation for `manyS`, which
 manyS :: (Parser [a] -> Parser [a]) -> (Parser [a] -> Parser [a])
 ```
 
-The definition is quite obscure and it can be best explained with an example. Suppose we want to parse words such as "buzz", "fizzbuzz", "fizzfizzbuzz", "fizzfizzfizzbuzz", *i.e.* words that start with at least one "fizz" and end with "buzz". Using the CPS version for `manyS`, we can write the parser simply as `CPS.manyS (CPS.string "fizz") (L.string "buzz")`. Note that the first argument is also a combinator that takes a string parser and produces a string parser.
+The definition is quite obscure and it can be best explained with an example. Suppose we want to parse words such as "buzz", "fizzbuzz", "fizzfizzbuzz", "fizzfizzfizzbuzz", *i.e.* words that start with at zero or more "fizz"s and end with one "buzz". Using the CPS version for `manyS`, we can write the parser simply as `CPS.manyS (CPS.string "fizz") (L.string "buzz")`. Note that the first argument is also a combinator that takes a string parser and produces a string parser.
 
 With `CPS.manyS`, we can rewrite `wordParser` and eliminate string concatenations in the original `manyS`:
 
 ```Haskell
 wordParser = CPS.some letterParser ((CPS.manyS (\p -> prune >> groupParser p)) (pure []))
   where
-    -- Note that now groupParser is a combinator
+    -- Note that now groupParser is also a combinator
     groupParser p = CPS.cons (choice [L.char '-', L.char '\'']) (CPS.some letterParser p)
 ```
 

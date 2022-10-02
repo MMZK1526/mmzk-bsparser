@@ -186,7 +186,7 @@ renderErrBundle eb = T.concat $ showError <$> ebErrors eb
     work entry@(i, (r, c)) ixs@(i' : ixs')
       | i < i'    = case fromJust . BSU.decode $ BS.drop i str of
         ('\t', _) -> work (i + 1, (r, c + ebTabWidth eb)) ixs
-        ('\n', _) -> work (i + 1, (r + 1, c)) ixs
+        ('\n', _) -> work (i + 1, (r + 1, 1)) ixs
         ('\r', _) -> work (i + 1, (r, c)) ixs
         (_, ix)   -> if i + ix > i'
           then (i', (r, c)) : work entry ixs'
