@@ -6,7 +6,8 @@ module MMZK.BSParser
   , inspect, withLen, renderErrBundle, renderErrBundleAsStr, (<??>), prune
   , withPrune, setTabWidth, manyS, someS, optionalS, rangeS, sepByS, sepEndByS
   , sepBy1S, sepEndBy1S, optional, pmap, void, forM, forM_, mapM, mapM_
-  , when, unless, replicateM, replicateM_, pbind, liftM2, liftM3 ) where
+  , when, unless, replicateM, replicateM_, pbind, liftM2, liftM3, pruneNext
+  , withPruneNext ) where
 
 import           Control.Monad
 import           MMZK.BSParser.Convert

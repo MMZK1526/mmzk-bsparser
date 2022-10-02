@@ -76,6 +76,6 @@ wordlistParser3 = do
   sepBy (lexer $ PA.char ',') (prune >> lexer wordParser)
   where
     wordParser = ( CPS.some PA.alpha
-                 . CPS.manyS ( (prune >>)
+                 . CPS.manyS ( (pruneNext >>)
                              . CPS.cons (choice [PA.char '-', PA.char '\''])
                              . CPS.some PA.alpha ) ) (pure [])

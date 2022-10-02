@@ -84,8 +84,8 @@ instance Monad m => A.Alternative (BSParserT e m) where
   f <|> g = BSParserT $ \ps -> do
     (ma, psF) <- runParserT f ps
     case ma of
-      Left errF -> if parseIndex psF /= parseIndex ps
-                   && pruneIndex psF >= parseIndex ps
+      Left errF -> if pruneIndex psF >= parseIndex ps
+                   && pruneIndex psF <= parseIndex psF
         then pure (Left errF, psF)
         else do
           (mb, psG) <- runParserT g ps
@@ -129,7 +129,7 @@ parseT parser str = do
                            , errorStack  = []
                            , errorLocs   = IS.empty
                            , tabWidth    = 4
-                           , pruneIndex  = 0 }
+                           , pruneIndex  = -1 }
 {-# INLINE [2] parseT #-}
 
 parse :: ByteStringLike s => BSParser e a -> s -> Either (ErrBundle e) a
@@ -157,11 +157,18 @@ setSpaceParser p = BSParserT
                  $ \ps -> pure (Right (), ps { spaceParser = void p })
 {-# INLINE [2] setSpaceParser #-}
 
--- | Set the "pruneIndex" to "parseIndex", stopping backtrack beyond the current
--- index.
+-- | Set the "pruneIndex" to "parseIndex", stopping backtracking since the
+-- current index.
 prune :: Monad m => BSParserT e m ()
 prune = BSParserT $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps })
 {-# INLINE [2] prune #-}
+
+-- | Set the "pruneIndex" to "parseIndex + 1", stopping backtracking
+-- beyond the current index.
+pruneNext :: Monad m => BSParserT e m ()
+pruneNext = BSParserT
+          $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps + 1 })
+{-# INLINE [2] pruneNext #-}
 
 -- | Use "prune" within the given "BSParserT". If the latter succeeds, restore
 -- the "pruneIndex".
@@ -172,6 +179,16 @@ withPrune p = BSParserT $ \ps -> do
     Left _  -> ps'
     Right _ -> ps' { pruneIndex = pruneIndex ps }
 {-# INLINE [2] withPrune #-}
+
+-- | Use "pruneNext" within the given "BSParserT". If the latter succeeds,
+-- restore the "pruneIndex".
+withPruneNext :: Monad m => BSParserT e m a -> BSParserT e m a
+withPruneNext p = BSParserT $ \ps -> do
+  (r, ps') <- runParserT p ps { pruneIndex = parseIndex ps + 1 }
+  return . (r ,) $ case r of
+    Left _  -> ps'
+    Right _ -> ps' { pruneIndex = pruneIndex ps }
+{-# INLINE [2] withPruneNext #-}
 
 -- | Set the tab width for the parser. The tab width will affect the column
 -- number of the characters in the input stream.

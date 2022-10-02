@@ -108,12 +108,12 @@ singleParser = choice [ do innerKuohu <- parens (L.char '(') (L.char ')') kuohuP
                            return (Brack innerKuohu) ]
 ```
 
-Of course, we can simplify the inner `do`-notations with functor operation. We also use `prune` to avoid backtracking, since if the parser fails in after successfully parsing a '(', there is no point to try '['.
+Of course, we can simplify the inner `do`-notations with functor operation. We also use `pruneNext` to avoid backtracking, since if the parser fails in after successfully parsing a '(', there is no point to try '['.
 
 ```Haskell
 -- | The "Single" parser.
 singleParser :: Parser Kuohu
-singleParser = prune
+singleParser = pruneNext
           >> choice [ Paren <$> parens (L.char '(') (L.char ')') kuohuParser
                     , Brack <$> parens (L.char '[') (L.char ']') kuohuParser ]
 ```
@@ -180,7 +180,7 @@ Recall our definition for `wordParser`:
 wordParser :: Parser String
 wordParser = do
   pureLetters  <- some letterParser
-  symbolGroups <- manyS (prune >> groupParser)
+  symbolGroups <- manyS (pruneNext >> groupParser)
   return $ pureLetters ++ symbolGroups
   where
     groupParser = do
@@ -218,7 +218,7 @@ In this way, we can refactor `wordParser` as following:
 
 ```Haskell
 wordParser :: Parser String
-wordParser = CPS.some letterParser (manyS (prune >> groupParser))
+wordParser = CPS.some letterParser (manyS (pruneNext >> groupParser))
   where
     groupParser = do
       symbol  <- choice [L.char '-', L.char '\'']
@@ -256,7 +256,7 @@ The definition is quite obscure and it can be best explained with an example. Su
 With `CPS.manyS`, we can rewrite `wordParser` and eliminate string concatenations in the original `manyS`:
 
 ```Haskell
-wordParser = CPS.some letterParser ((CPS.manyS (\p -> prune >> groupParser p)) (pure []))
+wordParser = CPS.some letterParser ((CPS.manyS (\p -> pruneNext >> groupParser p)) (pure []))
   where
     -- Note that now groupParser is also a combinator
     groupParser p = CPS.cons (choice [L.char '-', L.char '\'']) (CPS.some letterParser p)
@@ -270,7 +270,7 @@ CPS parsers are easily composable, thus we can rewrite the definition above into
 wordParser :: Parser String
 wordParser = CPS.runCPS 
            $ CPS.some letterParser
-           . CPS.manyS ( (prune >>)
+           . CPS.manyS ( (pruneNext >>)
                        . CPS.cons (choice [L.char '-', L.char '\''])
                        . CPS.some letterParser )
 ```

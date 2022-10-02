@@ -60,11 +60,11 @@ parseJSON :: ByteStringLike s => s -> Either (ErrBundle String) JSON
 parseJSON = parse (L.wrapper jSpace jsonParser)
 
 jsonParser :: Monad m => BSParserT e m JSON
-jsonParser = prune >> choice [ Num <$> jNum
-                             , Lit <$> jLit
-                             , Str <$> jStr
-                             , Arr <$> jArr
-                             , Obj <$> jObj ]
+jsonParser = pruneNext >> choice [ Num <$> jNum
+                                 , Lit <$> jLit
+                                 , Str <$> jStr
+                                 , Arr <$> jArr
+                                 , Obj <$> jObj ]
 
 -- | Parse JSON whitespaces.
 jSpace :: Monad m => BSParserT e m ()

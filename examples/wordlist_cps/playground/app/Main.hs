@@ -18,7 +18,7 @@ letterParser = L.satisfy (\ch -> isAlpha ch && isAscii ch) <?> ["ascii letter"]
 wordParser :: Parser String
 wordParser = CPS.runCPS 
            $ CPS.some letterParser
-           . CPS.manyS ( (prune >>)
+           . CPS.manyS ( (pruneNext >>)
                        . CPS.cons (choice [L.char '-', L.char '\''])
                        . CPS.some letterParser )
 

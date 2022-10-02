@@ -52,7 +52,7 @@ To follow this example, make sure that the ["playground" workspace](#installatio
 * Use basic lexers to parse a single given character
 * Use basic lexers to parse a single letter
 * Use combinators such as `some`, `sepBy`, and `choice` to build more complicated parsers
-* Use `prune` to avoid excessive backtracking and pin-point error locations
+* Use `prune` and `pruneNext` to avoid excessive backtracking and pin-point error locations
 * Ignore meaningless spaces
 
 ### First Attempt
@@ -206,6 +206,8 @@ The function `prune` is then invoked, marking the current location (the digit '1
 
 Pruning is often useful when a parser may be invoked many times by combinators such as `some` and `many`, since most of the time if an error occurs within such a combinator, there is no point to backtrack.
 
+TODO: Example with `pruneNext`
+
 ### Dealing with Spaces
 There is one more problem: we do not allow spaces between commas and words, for example, `wordlistParser` does not accept "apple, banana" and would complain about the space:
 
@@ -329,13 +331,13 @@ Syntax error at row 1 col 1:
 
 Before we finish the tutorial, let's add more niche to the definition of "word". Let's say we allow words to contain dashes "-" and apostrophes "'",they can neither be the first or the last character nor appear consecutively, *e.g.* "I'm-MMZK" is allowed but "-a-" and "I'-m" are not.
 
-Such ruke can be expressed succinctly as a Regex Expression: `[A-Za-z]+([-'][A-Za-z]+)*`, which means it starts with a least one letter, then it has zero or more groups of "apostrophe/dash followed by at least one letter". Here is how we could express it with the parser combinators by modifying `wordParser`:
+Such a rule can be expressed succinctly as a Regex Expression: `[A-Za-z]+([-'][A-Za-z]+)*`, which means it starts with a least one letter, then it has zero or more groups of "apostrophe/dash followed by at least one letter". Here is how we could express it with the parser combinators by modifying `wordParser`:
 
 ```Haskell
 wordParser :: Parser String
 wordParser = do
   pureLetters  <- some letterParser
-  symbolGroups <- manyS (prune >> groupParser)
+  symbolGroups <- manyS (pruneNext >> groupParser)
   return $ pureLetters ++ symbolGroups
   where
     groupParser = do

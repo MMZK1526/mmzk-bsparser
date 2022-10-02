@@ -32,24 +32,3 @@ calculator = mkExpr (choice [ lexer $ L.signed L.digits
                       , prefix pred (lexer $ L.string "--")
                       , postfix succ (lexer $ L.string "++")
                       , postfix pred (lexer $ L.string "--") ] ]
-
--- calculator :: Parser Integer
--- calculator = do
---   i1  <- lexer tParser
---   mOp <- optional (lexer $ L.oneOf "+-")
---   case mOp of
---     Just '+' -> (i1 +) <$> lexer tParser
---     Just '-' -> (i1 -) <$> lexer tParser
---     _        -> pure i1
-
--- tParser :: Parser Integer
--- tParser = do
---   i1  <- lexer literalParser
---   mOp <- optional (lexer $ L.oneOf "*/")
---   case mOp of
---     Just '*' -> (i1 *) <$> lexer literalParser
---     Just '/' -> (i1 `div`) <$> lexer literalParser
---     _        -> pure i1
-
--- literalParser :: Parser Integer
--- literalParser = prune >> choice [L.signed L.digits, parens (lexer (L.char '(')) (lexer (L.char ')')) calculator]

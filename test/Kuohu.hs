@@ -100,7 +100,7 @@ parseKuohu :: ByteStringLike s => s -> Either (ErrBundle String) Kuohu
 parseKuohu = parse (CPS.wrapper (pure ()) kuohuCPS)
 
 kuohuCPS :: Parser Kuohu -> Parser Kuohu
-kuohuCPS = CPS.manyS ((prune >>) . singleNestParser)
+kuohuCPS = CPS.manyS ((pruneNext >>) . singleNestParser)
   where
     singleNestParser = CPS.choice
         [ fmap Paren . CPS.parens (PA.char '(') (PA.char ')') kuohuCPS

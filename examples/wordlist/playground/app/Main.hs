@@ -17,7 +17,7 @@ letterParser = L.satisfy (\ch -> isAlpha ch && isAscii ch) <?> ["ascii letter"]
 wordParser :: Parser String
 wordParser = do
   pureLetters  <- some letterParser
-  symbolGroups <- manyS (prune >> groupParser)
+  symbolGroups <- manyS (pruneNext >> groupParser)
   return $ pureLetters ++ symbolGroups
   where
     groupParser = do
