@@ -146,6 +146,11 @@ getState :: Monad m => BSParserT e m (ParseState e m)
 getState = BSParserT $ \ps -> pure (Right ps, ps)
 {-# INLINE [2] getState #-}
 
+-- | Set the "ParseState". It is not a safe operation unless the "ParseState" is
+-- retrieved earlier by "getState".
+setState :: Monad m => ParseState e m -> BSParserT e m ()
+setState ps = BSParserT $ \_ -> pure (Right (), ps)
+
 -- | Set whether bad codepoints are allowed.
 setAllowBadCP :: Monad m => Bool -> BSParserT e m ()
 setAllowBadCP val = BSParserT $ \ps -> pure (Right (), ps { allowBadCP = val })
