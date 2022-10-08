@@ -168,11 +168,11 @@ prune :: Monad m => BSParserT e m ()
 prune = BSParserT $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps })
 {-# INLINE [2] prune #-}
 
--- | Set the "pruneIndex" to "parseIndex + 1", stopping backtracking
+-- | Set the "pruneIndex" to "parseIndex - 1", stopping backtracking
 -- beyond the current index.
 pruneNext :: Monad m => BSParserT e m ()
 pruneNext = BSParserT
-          $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps + 1 })
+          $ \ps -> pure (Right (), ps { pruneIndex = parseIndex ps - 1 })
 {-# INLINE [2] pruneNext #-}
 
 -- | Use "prune" within the given "BSParserT". If the latter succeeds, restore
@@ -189,7 +189,7 @@ withPrune p = BSParserT $ \ps -> do
 -- restore the "pruneIndex".
 withPruneNext :: Monad m => BSParserT e m a -> BSParserT e m a
 withPruneNext p = BSParserT $ \ps -> do
-  (r, ps') <- runParserT p ps { pruneIndex = parseIndex ps + 1 }
+  (r, ps') <- runParserT p ps { pruneIndex = parseIndex ps - 1 }
   return . (r ,) $ case r of
     Left _  -> ps'
     Right _ -> ps' { pruneIndex = pruneIndex ps }
