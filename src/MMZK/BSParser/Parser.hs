@@ -84,7 +84,8 @@ instance Monad m => A.Alternative (BSParserT e m) where
   f <|> g = BSParserT $ \ps -> do
     (ma, psF) <- runParserT f ps
     case ma of
-      Left errF -> if pruneIndex psF >= parseIndex ps
+      Left errF -> if parseIndex psF /= parseIndex ps
+                   && pruneIndex psF >= parseIndex ps
                    && pruneIndex psF <= parseIndex psF
         then pure (Left errF, psF)
         else do

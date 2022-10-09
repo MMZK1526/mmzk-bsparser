@@ -294,28 +294,28 @@ binDigits = foldl' ((+) . (* 2)) 0
 -- | Parses a string of digits into a pure decimal number (i.e. "114514" to
 -- 0.114514). Does not take the decimal point.
 fractional :: Fractional a => Monad m => BSParserT e m a
-fractional = foldl' ((. (/ 10)) . (+)) 0
+fractional = (/ 10) . foldr' ((. (/ 10)) . (+)) 0
            . fmap (fromIntegral . digitToInt) <$> some digitChar
 {-# INLINE [2] fractional #-}
 
 -- | Parses a string of hex digits into a pure decimal number (i.e. "114514" to
 -- 0.114514). Does not take the decimal point.
 hexFractional :: Fractional a => Monad m => BSParserT e m a
-hexFractional = foldl' ((. (/ 10)) . (+)) 0
+hexFractional = (/ 10) . foldr' ((. (/ 16)) . (+)) 0
               . fmap (fromIntegral . digitToInt) <$> some hexDigitChar
 {-# INLINE [2] hexFractional #-}
 
 -- | Parses a string of oct digits into a pure decimal number (i.e. "114514" to
 -- 0.114514). Does not take the decimal point.
 octFractional :: Fractional a => Monad m => BSParserT e m a
-octFractional = foldl' ((. (/ 10)) . (+)) 0
+octFractional = (/ 10) . foldr' ((. (/ 8)) . (+)) 0
               . fmap (fromIntegral . digitToInt) <$> some octDigitChar
 {-# INLINE [2] octFractional #-}
 
 -- | Parses a string of bin digits into a pure decimal number (i.e. "10101" to
 -- 0.10101). Does not take the decimal point.
 binFractional :: Fractional a => Monad m => BSParserT e m a
-binFractional = foldl' ((. (/ 10)) . (+)) 0
+binFractional = (/ 10) . foldr' ((. (/ 2)) . (+)) 0
               . fmap (fromIntegral . digitToInt) <$> some binDigitChar
 {-# INLINE [2] binFractional #-}
 
@@ -333,8 +333,8 @@ decimate = (. (char '.' >>)) . liftM2 (+)
 {-# INLINE [2] decimate #-}
 
 -- | Take the base and two parsers for the coefficient part and exponential part
--- of a number,
--- combining them together. The exponential part must be an integer.
+-- of a number, combining them together. The exponential part must be an
+-- integer.
 scientify :: Fractional a => Integral b => Monad m
           => Int -> BSParserT e m a -> BSParserT e m b -> BSParserT e m a
 scientify b pC pE = liftM2 ((. (fromIntegral b ^^)) . (*)) pC (oneOf "eE" >> pE)
