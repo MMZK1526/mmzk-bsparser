@@ -67,11 +67,11 @@ instance Monad m => Functor (BSParserT e m) where
   fmap = liftM
 
 instance Monad m => Applicative (BSParserT e m) where
-  pure  = return
+  pure a = BSParserT $ return . (Right a ,)
   (<*>) = ap
 
 instance Monad m => Monad (BSParserT e m) where
-  return a = BSParserT $ return . (Right a ,)
+  return = pure
   f >>= g  = BSParserT $ \ps -> do
     (ma, ps') <- runParserT f ps
     case ma of
